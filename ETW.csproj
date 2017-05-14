@@ -74,6 +74,8 @@
       <Generator>MSBuild:Compile</Generator>
       <SubType>Designer</SubType>
     </ApplicationDefinition>
+    <Compile Include="ContextSwitchRecorder.cs" />
+    <Compile Include="EventRecorder.cs" />
     <Compile Include="MarkerRecorder.cs" />
     <Compile Include="RawData.cs" />
     <Compile Include="Sampler.cs" />

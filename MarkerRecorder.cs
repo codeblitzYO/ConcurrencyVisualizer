@@ -27,48 +27,32 @@ namespace ETW
         public DateTime timestamp;
     }
 
-    class MarkerRecorder
+    class MarkerRecorder : EventRecorder
     {
         const int RecordCountMax = 100000;
 
-        private TraceEventSession etwSesion;
-        private Thread runner;
         private List<Marker> spanRecord = new List<Marker>();
 
         public MarkerRecorder()
-        { }
-
+        {
+        }
         public MarkerRecorder(Guid guid)
         {
             Start(guid);
         }
 
-        public void Start(Guid guid)
+        public override void Stop()
         {
-            etwSesion = new TraceEventSession("ConcurrencyVisualizerMarkers" + guid.ToString());
-            etwSesion.StopOnDispose = true;
-            etwSesion.Source.AllEvents += EventCallback;
-
-            etwSesion.EnableProvider(guid, TraceEventLevel.Informational);
-
-            runner = new Thread(() =>
-            {
-                etwSesion.Source.Process();
-            });
-            runner.Start();
+            base.Stop();
         }
 
-        public void Stop()
+        protected override void InitializeProviders(Guid guid)
         {
-            if (etwSesion != null)
-            {
-                etwSesion.Stop();
-            }
-            runner = null;
-            etwSesion = null;
+            Session.Source.AllEvents += OnEvent;
+            Session.EnableProvider(guid, TraceEventLevel.Informational);
         }
 
-        private void EventCallback(TraceEvent data)
+        protected void OnEvent(TraceEvent data)
         {
             if (data.Version != 1) return;
             if ((int)data.ID == 0xfffe) return;

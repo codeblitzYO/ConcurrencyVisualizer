@@ -15,6 +15,7 @@ namespace ETW
     {
         private Process targetProcess = null;
         private List<MarkerRecorder> markerRecorderArray = new List<MarkerRecorder>();
+        private ContextSwitchRecorder contextSwitchRecorder;
 
         public Sampler()
         {
@@ -45,6 +46,8 @@ namespace ETW
 
             var defaultGuid = new Guid("8d4925ab-505a-483b-a7e0-6f824a07a6f0");
 
+            contextSwitchRecorder = new ContextSwitchRecorder(ContextSwitchRecorder.DefaultGuid);
+
             markerRecorderArray.Add(new MarkerRecorder(defaultGuid));
             markerRecorderArray.Add(new MarkerRecorder(new Guid("edbc9dc2-0c50-48e4-88df-65aa0d8ece00")));
             markerRecorderArray.Add(new MarkerRecorder(new Guid("edbc9dc2-0c50-48e4-88df-65aa0d8ece01")));
@@ -58,6 +61,7 @@ namespace ETW
             {
                 i.Stop();
             }
+            contextSwitchRecorder.Stop();
             targetProcess = null;
         }
 
