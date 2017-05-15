@@ -103,7 +103,7 @@ namespace ETW
                 });
                 if (markerRecord.Count > RecordCountMax)
                 {
-                    markerRecord.RemoveRange(0, RecordCountMax / 2);
+                    markerRecord.RemoveRange(0, RecordCountMax / 10);
                 }
             }
         }

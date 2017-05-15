@@ -86,7 +86,7 @@ namespace ETW
 
                 if (swRecord.Count > RecordCountMax)
                 {
-                    swRecord.RemoveRange(0, RecordCountMax / 2);
+                    swRecord.RemoveRange(0, RecordCountMax / 10);
                 }
             }
         }
@@ -110,7 +110,7 @@ namespace ETW
 
                 if (csRecord.Count > RecordCountMax)
                 {
-                    csRecord.RemoveRange(0, RecordCountMax / 2);
+                    csRecord.RemoveRange(0, RecordCountMax / 10);
                 }
             }
         }
