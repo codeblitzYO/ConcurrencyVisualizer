@@ -12,6 +12,7 @@ using System.Windows.Media;
 using System.Windows.Media.Imaging;
 using System.Windows.Navigation;
 using System.Windows.Shapes;
+using System.Timers;
 
 namespace ETW
 {
@@ -21,13 +22,25 @@ namespace ETW
     public partial class MainWindow : Window
     {
         private Sampler sampler;
+        
 
         public MainWindow()
         {
             InitializeComponent();
 
             sampler = new Sampler();
-            sampler.Start("MECH");
+            sampler.Start(null);
+
+            Graph.DataSource = sampler;
+        }
+
+        private void Window_Closing(object sender, System.ComponentModel.CancelEventArgs e)
+        {
+            if (sampler != null)
+            {
+                sampler.Stop();
+            }
+            Graph.DataSource = null;
         }
 
         private void Start_Click(object sender, RoutedEventArgs e)
@@ -39,5 +52,6 @@ namespace ETW
         {
 
         }
+
     }
 }

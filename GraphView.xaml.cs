@@ -12,6 +12,7 @@ using System.Windows.Media;
 using System.Windows.Media.Imaging;
 using System.Windows.Navigation;
 using System.Windows.Shapes;
+using System.Timers;
 
 namespace ETW
 {
@@ -20,16 +21,56 @@ namespace ETW
     /// </summary>
     public partial class GraphView : UserControl
     {
+        private Random g = new Random();
+
+        private Sampler dataSource;
+        public Sampler DataSource
+        {
+            get { return dataSource; }
+            set
+            {
+                dataSource = value;
+                renderingTimer.Enabled = value != null;
+            }
+        }
+
+        private Timer renderingTimer;
+
         public GraphView()
         {
             InitializeComponent();
+
+            renderingTimer = new Timer(10.0f);
+            renderingTimer.Elapsed += RenderingTimer_Elapsed;
+        }
+
+        private void RenderingTimer_Elapsed(object sender, ElapsedEventArgs e)
+        {
+            Dispatcher.Invoke(() =>
+            {
+                InvalidateVisual();
+            });
         }
 
         protected override void OnRender(DrawingContext drawingContext)
         {
             base.OnRender(drawingContext);
 
-            //drawingContext.DrawRectangle(Brushes.Aqua, null, new Rect(0, 0, 100, 100));
+            var brush = new SolidColorBrush(Color.FromRgb(
+                (byte)(g.Next() % 255),
+                (byte)(g.Next() % 255),
+                (byte)(g.Next() % 255)));
+            drawingContext.DrawRectangle(brush, null, new Rect(0, 0, 100, 100));
+
+            if (dataSource == null)
+            {
+                return;
+            }
+
+            var now = DateTime.Now - TimeSpan.FromMilliseconds(1000);
+            var leave = now - TimeSpan.FromMilliseconds(100);
+            var cs = dataSource.GetContextSwitchSpan(leave, now);
+
         }
     }
 }

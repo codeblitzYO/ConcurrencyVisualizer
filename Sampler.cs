@@ -24,29 +24,33 @@ namespace ETW
 
         public bool Start(string processName)
         {
-            int processId;
-            if (!int.TryParse(processName, out processId))
+            if (!string.IsNullOrEmpty(processName))
             {
-                processId = -1;
-            }
-            
-            var allProcess = Process.GetProcesses();
-            foreach (var process in allProcess)
-            {
-                if (process.ProcessName.IndexOf(processName) == 0 || process.Id == processId)
+                int processId;
+                if (!int.TryParse(processName, out processId))
                 {
-                    targetProcess = process;
+                    processId = -1;
                 }
-            }
-            
-            if (targetProcess == null)
-            {
-                return false;
+
+                var allProcess = Process.GetProcesses();
+                foreach (var process in allProcess)
+                {
+                    if (process.ProcessName.IndexOf(processName) == 0 || process.Id == processId)
+                    {
+                        targetProcess = process;
+                    }
+                }
+
+                if (targetProcess == null)
+                {
+                    return false;
+                }
             }
 
             var defaultGuid = new Guid("8d4925ab-505a-483b-a7e0-6f824a07a6f0");
 
             contextSwitchRecorder = new ContextSwitchRecorder(ContextSwitchRecorder.DefaultGuid);
+            contextSwitchRecorder.TargetProcess = targetProcess;
 
             markerRecorderArray.Add(new MarkerRecorder(defaultGuid));
             markerRecorderArray.Add(new MarkerRecorder(new Guid("edbc9dc2-0c50-48e4-88df-65aa0d8ece00")));
@@ -55,17 +59,32 @@ namespace ETW
             return true;
         }
 
-        void Stop()
+        public void Stop()
         {
             foreach (var i in markerRecorderArray)
             {
                 i.Stop();
             }
+            markerRecorderArray.Clear();
             contextSwitchRecorder.Stop();
+            contextSwitchRecorder = null;
             targetProcess = null;
         }
 
-        
+        public List<Marker> GetMarkerSpan(DateTime startTime, DateTime lastTime)
+        {
+            var allin = new List<Marker>();
+            foreach (var i in markerRecorderArray)
+            {
+                allin.AddRange(i.GetMarkerSpan(startTime, lastTime));
+            }
+            allin.Sort((x, y) => { return x.timestamp.CompareTo(y.timestamp); });
+            return allin;
+        }
 
+        public List<ContextSwitch> GetContextSwitchSpan(DateTime startTime, DateTime lastTime)
+        {
+            return contextSwitchRecorder.GetContextSwitchSpan(startTime, lastTime);
+        }
     }
 }

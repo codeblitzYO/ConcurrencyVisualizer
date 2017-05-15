@@ -31,7 +31,8 @@ namespace ETW
     {
         const int RecordCountMax = 100000;
 
-        private List<Marker> spanRecord = new List<Marker>();
+        private List<Marker> markerRecord = new List<Marker>();
+        private object recordLock = new object();
 
         public MarkerRecorder()
         {
@@ -90,17 +91,28 @@ namespace ETW
                 }
             }
 
-            spanRecord.Add(new Marker()
+            lock (recordLock)
             {
-                e = e,
-                id = span,
-                name = name,
-                thread = data.ThreadID,
-                timestamp = data.TimeStamp
-            });
-            if (spanRecord.Count > RecordCountMax)
+                markerRecord.Add(new Marker()
+                {
+                    e = e,
+                    id = span,
+                    name = name,
+                    thread = data.ThreadID,
+                    timestamp = data.TimeStamp
+                });
+                if (markerRecord.Count > RecordCountMax)
+                {
+                    markerRecord.RemoveRange(0, RecordCountMax / 2);
+                }
+            }
+        }
+
+        public List<Marker> GetMarkerSpan(DateTime startTime, DateTime lastTime)
+        {
+            lock (recordLock)
             {
-                spanRecord.RemoveRange(0, RecordCountMax / 2);
+                return markerRecord.FindAll(e => e.timestamp >= startTime && e.timestamp < lastTime);
             }
         }
     }

@@ -6,7 +6,4 @@
              xmlns:local="clr-namespace:ETW"
              mc:Ignorable="d" 
              d:DesignHeight="300" d:DesignWidth="300">
-    <Grid>
-            
-    </Grid>
 </UserControl>
