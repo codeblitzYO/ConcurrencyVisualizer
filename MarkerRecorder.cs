@@ -9,7 +9,7 @@ using Microsoft.Diagnostics.Tracing.Session;
 
 namespace ETW
 {
-    public struct Marker
+    public struct Marker : IRecordData
     {
         public enum Event
         {
@@ -25,14 +25,17 @@ namespace ETW
         public string name;
         public int thread;
         public DateTime timestamp;
+
+        public DateTime Timestamp
+        {
+            get { return timestamp; }
+            set { timestamp = value; }
+        }
     }
 
     class MarkerRecorder : EventRecorder
     {
-        const int RecordCountMax = 100000;
-
-        private List<Marker> markerRecord = new List<Marker>();
-        private object recordLock = new object();
+        private Record<Marker> markerRecord = new Record<Marker>();
 
         public MarkerRecorder()
         {
@@ -91,29 +94,21 @@ namespace ETW
                 }
             }
 
-            lock (recordLock)
+            markerRecord.Append(new Marker()
             {
-                markerRecord.Add(new Marker()
-                {
-                    e = e,
-                    id = span,
-                    name = name,
-                    thread = data.ThreadID,
-                    timestamp = data.TimeStamp
-                });
-                if (markerRecord.Count > RecordCountMax)
-                {
-                    markerRecord.RemoveRange(0, RecordCountMax / 10);
-                }
-            }
+                e = e,
+                id = span,
+                name = name,
+                thread = data.ThreadID,
+                timestamp = data.TimeStamp
+            });
+
+            LastestEventTime = data.TimeStamp;
         }
 
         public List<Marker> GetMarkerSpan(DateTime startTime, DateTime lastTime)
         {
-            lock (recordLock)
-            {
-                return markerRecord.FindAll(e => e.timestamp >= startTime && e.timestamp < lastTime);
-            }
+            return markerRecord.GetSpan(startTime, lastTime);
         }
     }
 }

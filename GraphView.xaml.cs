@@ -68,33 +68,26 @@ namespace ETW
 
             ContextSwitch[] timeline = new ContextSwitch[Environment.ProcessorCount];
 
-            var last = DateTime.Now - TimeSpan.FromMilliseconds(1000);
+            var last = DateTime.Now - TimeSpan.FromSeconds(5);
             var start = last - TimeSpan.FromMilliseconds(100);
             var cs = dataSource.GetContextSwitchSpan(start, last);
 
             foreach (var i in cs)
             {
                 ref var old = ref timeline[i.processor];
-                if (old.newThread != 0)
+
+                if (old.action == ContextSwitch.ActionType.Enter && i.action == ContextSwitch.ActionType.Leave)
                 {
                     DrawCpuUsingSpan(drawingContext, brush, i.processor, start, old.timestamp, i.timestamp);
                 }
                 old = i;
             }
-            foreach (var i in timeline)
-            {
-                ref var tail = ref timeline[i.processor];
-                if (tail.newThread != 0)
-                {
-                    DrawCpuUsingSpan(drawingContext, brush, tail.processor, start, tail.timestamp, last);
-                }
-            }
         }
 
         private void DrawCpuUsingSpan(DrawingContext drawingContext, Brush brush, int cpuNo, DateTime startTime, DateTime usingTime0, DateTime usingTime1)
         {
-            var w = (usingTime1 - usingTime0).Ticks / 5000;
-            var x = (usingTime1 - startTime).Ticks / 5000;
+            var w = (usingTime1 - usingTime0).Ticks / 2000;
+            var x = (usingTime1 - startTime).Ticks / 2000;
             var y = cpuNo * 16;
             var h = 14;
 

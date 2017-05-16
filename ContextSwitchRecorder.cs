@@ -11,18 +11,36 @@ using System.Diagnostics;
 
 namespace ETW
 {
-    public struct ContextSwitch
+    public struct ContextSwitch : IRecordData
     {
+        public enum ActionType
+        {
+            None, Enter, Leave
+        }
+
+        public ActionType action;
         public int processor;
         public int newThread;
         public int oldThread;
         public DateTime timestamp;
+
+        public DateTime Timestamp
+        {
+            get { return timestamp; }
+            set { timestamp = value; }
+        }
     }
-    public struct Stackwalk
+    public struct Stackwalk : IRecordData
     {
         public int thread;
         public ulong[] pc;
         public DateTime timestamp;
+
+        public DateTime Timestamp
+        {
+            get { return timestamp; }
+            set { timestamp = value; }
+        }
     }
 
     class ContextSwitchRecorder : EventRecorder
@@ -31,10 +49,8 @@ namespace ETW
 
         public static readonly Guid DefaultGuid = new Guid("1AC26ADB-2AA9-482F-AFED-3ADA43EA46DD");
             
-        private List<ContextSwitch> csRecord = new List<ContextSwitch>();
-        private List<Stackwalk> swRecord = new List<Stackwalk>();
-        private object csRecordLock = new object();
-        private object swRecordLock = new object();
+        private Record<ContextSwitch> csRecord = new Record<ContextSwitch>();
+        private Record<Stackwalk> swRecord = new Record<Stackwalk>();
 
 
         public override bool IsKernel { get { return true; } }
@@ -75,60 +91,55 @@ namespace ETW
                 pc[i] = data.InstructionPointer(i);
             }
 
-            lock (swRecordLock)
+            swRecord.Append(new Stackwalk()
             {
-                swRecord.Add(new Stackwalk()
-                {
-                    thread = data.ThreadID,
-                    pc = pc,
-                    timestamp = data.TimeStamp
-                });
+                thread = data.ThreadID,
+                pc = pc,
+                timestamp = data.TimeStamp
+            });
 
-                if (swRecord.Count > RecordCountMax)
-                {
-                    swRecord.RemoveRange(0, RecordCountMax / 10);
-                }
-            }
+            LastestEventTime = data.TimeStamp;
         }
 
         private void Kernel_ThreadCSwitch(Microsoft.Diagnostics.Tracing.Parsers.Kernel.CSwitchTraceData data)
         {
-            if (TargetProcess != null && data.ProcessID != TargetProcess.Id)
+            if (TargetProcess == null)
+            {
+                return;
+            }
+            if (data.NewProcessID != TargetProcess.Id && data.OldProcessID != TargetProcess.Id)
+            {
+                return;
+            }
+            if (data.NewProcessID == data.OldProcessID)
             {
                 return;
             }
 
-            lock (csRecordLock)
-            {
-                csRecord.Add(new ContextSwitch()
-                {
-                    processor = data.ProcessorNumber,
-                    oldThread = data.OldThreadID,
-                    newThread = data.NewThreadID,
-                    timestamp = data.TimeStamp
-                });
+            ContextSwitch.ActionType action = (data.NewProcessID == TargetProcess.Id)
+                ? ContextSwitch.ActionType.Enter
+                : ContextSwitch.ActionType.Leave;            
 
-                if (csRecord.Count > RecordCountMax)
-                {
-                    csRecord.RemoveRange(0, RecordCountMax / 10);
-                }
-            }
+            csRecord.Append(new ContextSwitch()
+            {
+                action = action,
+                processor = data.ProcessorNumber,
+                oldThread = data.OldThreadID,
+                newThread = data.NewThreadID,
+                timestamp = data.TimeStamp
+            });
+
+            LastestEventTime = data.TimeStamp;
         }
 
         public List<ContextSwitch> GetContextSwitchSpan(DateTime startTime, DateTime lastTime)
         {
-            lock (csRecordLock)
-            {
-                return csRecord.FindAll(e => e.timestamp >= startTime && e.timestamp < lastTime);
-            }
+            return csRecord.GetSpan(startTime, lastTime);
         }
 
         public List<Stackwalk> GetStackwalkSpan(DateTime startTime, DateTime lastTime)
         {
-            lock (swRecordLock)
-            {
-                return swRecord.FindAll(e => e.timestamp >= startTime && e.timestamp < lastTime);
-            }
+            return swRecord.GetSpan(startTime, lastTime);
         }
     }
 }
