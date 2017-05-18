@@ -17,6 +17,9 @@ namespace ETW
         private List<MarkerRecorder> markerRecorderArray = new List<MarkerRecorder>();
         private ContextSwitchRecorder contextSwitchRecorder;
 
+        public Process TargetProcess { get { return targetProcess; } }
+
+
         public Sampler()
         {
 

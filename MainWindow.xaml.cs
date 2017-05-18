@@ -45,7 +45,7 @@ namespace ETW
 
         private void Start_Click(object sender, RoutedEventArgs e)
         {
-
+            
         }
 
         private void Pause_Click(object sender, RoutedEventArgs e)

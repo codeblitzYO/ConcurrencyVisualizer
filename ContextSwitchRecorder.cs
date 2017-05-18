@@ -15,7 +15,7 @@ namespace ETW
     {
         public enum ActionType
         {
-            None, Enter, Leave
+            None, Enter, Leave, Stay
         }
 
         public ActionType action;
@@ -111,18 +111,17 @@ namespace ETW
             {
                 return;
             }
-            if (data.NewProcessID == data.OldProcessID)
-            {
-                return;
-            }
 
-            ContextSwitch.ActionType action = (data.NewProcessID == TargetProcess.Id)
-                ? ContextSwitch.ActionType.Enter
-                : ContextSwitch.ActionType.Leave;            
+            ContextSwitch.ActionType processAction = 
+                (data.NewProcessID == data.OldProcessID)
+                    ? ContextSwitch.ActionType.Stay
+                    : (data.NewProcessID == TargetProcess.Id)
+                        ? ContextSwitch.ActionType.Enter
+                        : ContextSwitch.ActionType.Leave;            
 
             csRecord.Append(new ContextSwitch()
             {
-                action = action,
+                action = processAction,
                 processor = data.ProcessorNumber,
                 oldThread = data.OldThreadID,
                 newThread = data.NewThreadID,
