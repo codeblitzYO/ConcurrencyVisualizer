@@ -77,16 +77,14 @@ namespace ETW
             get { return etwSesion; }
         }
 
-        public virtual bool IsKernel { get { return false; } }
+        public abstract string SessionName { get; }
 
-        public virtual void Start(Guid guid)
+        public virtual void Start()
         {
-            var sessionName = IsKernel ? KernelTraceEventParser.KernelSessionName : "Session" + guid.ToString();
-
-            etwSesion = new TraceEventSession(sessionName);
+            etwSesion = new TraceEventSession(SessionName);
             etwSesion.StopOnDispose = true;
 
-            InitializeProviders(guid);
+            InitializeProviders();
 
             runner = new Thread(() =>
             {
@@ -105,6 +103,6 @@ namespace ETW
             etwSesion = null;
         }
 
-        protected abstract void InitializeProviders(Guid guid);
+        protected abstract void InitializeProviders();
     }
 }

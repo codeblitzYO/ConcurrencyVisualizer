@@ -37,23 +37,33 @@ namespace ETW
     {
         private Record<Marker> markerRecord = new Record<Marker>();
 
+        public override string SessionName { get { return "MarkerRecorder"; } }
+
         public MarkerRecorder()
         {
         }
-        public MarkerRecorder(Guid guid)
-        {
-            Start(guid);
-        }
 
-        public override void Stop()
+        protected override void InitializeProviders()
         {
-            base.Stop();
-        }
+            Session.EnableProvider(new Guid("8d4925ab-505a-483b-a7e0-6f824a07a6f0")); // CV default
+            Session.EnableProvider(new Guid("edbc9dc2-0c50-48e4-88df-65aa0d8ece00"));
+            Session.EnableProvider(new Guid("edbc9dc2-0c50-48e4-88df-65aa0d8ece01"));
+            Session.EnableProvider(new Guid("edbc9dc2-0c50-48e4-88df-65aa0d8ece02"));
+            Session.EnableProvider(new Guid("edbc9dc2-0c50-48e4-88df-65aa0d8ece03"));
+            Session.EnableProvider(new Guid("edbc9dc2-0c50-48e4-88df-65aa0d8ece04"));
+            Session.EnableProvider(new Guid("edbc9dc2-0c50-48e4-88df-65aa0d8ece05"));
+            Session.EnableProvider(new Guid("edbc9dc2-0c50-48e4-88df-65aa0d8ece06"));
+            Session.EnableProvider(new Guid("edbc9dc2-0c50-48e4-88df-65aa0d8ece07"));
+            Session.EnableProvider(new Guid("edbc9dc2-0c50-48e4-88df-65aa0d8ece08"));
+            Session.EnableProvider(new Guid("edbc9dc2-0c50-48e4-88df-65aa0d8ece09"));
+            Session.EnableProvider(new Guid("edbc9dc2-0c50-48e4-88df-65aa0d8ece0a"));
+            Session.EnableProvider(new Guid("edbc9dc2-0c50-48e4-88df-65aa0d8ece0b"));
+            Session.EnableProvider(new Guid("edbc9dc2-0c50-48e4-88df-65aa0d8ece0c"));
+            Session.EnableProvider(new Guid("edbc9dc2-0c50-48e4-88df-65aa0d8ece0d"));
+            Session.EnableProvider(new Guid("edbc9dc2-0c50-48e4-88df-65aa0d8ece0e"));
+            Session.EnableProvider(new Guid("edbc9dc2-0c50-48e4-88df-65aa0d8ece0f"));
 
-        protected override void InitializeProviders(Guid guid)
-        {
             Session.Source.AllEvents += OnEvent;
-            Session.EnableProvider(guid, TraceEventLevel.Informational);
         }
 
         protected void OnEvent(TraceEvent data)

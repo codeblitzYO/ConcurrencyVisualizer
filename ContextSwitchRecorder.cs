@@ -53,24 +53,15 @@ namespace ETW
         private Record<Stackwalk> swRecord = new Record<Stackwalk>();
 
 
-        public override bool IsKernel { get { return true; } }
+        public override string SessionName { get { return KernelTraceEventParser.KernelSessionName; } }
 
         public Process TargetProcess { get; set; }
 
         public ContextSwitchRecorder()
         {
         }
-        public ContextSwitchRecorder(Guid guid)
-        {
-            Start(guid);
-        }
-        
-        public override void Stop()
-        {
-            base.Stop();
-        }
 
-        protected override void InitializeProviders(Guid guid)
+        protected override void InitializeProviders()
         {
             Session.EnableKernelProvider(KernelTraceEventParser.Keywords.ContextSwitch, KernelTraceEventParser.Keywords.ContextSwitch);
 
