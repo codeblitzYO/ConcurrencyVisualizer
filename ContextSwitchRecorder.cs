@@ -97,8 +97,6 @@ namespace ETW
                 pc = pc,
                 timestamp = data.TimeStamp
             });
-
-            LastestEventTime = data.TimeStamp;
         }
 
         private void Kernel_ThreadCSwitch(Microsoft.Diagnostics.Tracing.Parsers.Kernel.CSwitchTraceData data)
@@ -127,8 +125,6 @@ namespace ETW
                 newThread = data.NewThreadID,
                 timestamp = data.TimeStamp
             });
-
-            LastestEventTime = data.TimeStamp;
         }
 
         public List<ContextSwitch> GetContextSwitchSpan(DateTime startTime, DateTime lastTime)

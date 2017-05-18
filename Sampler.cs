@@ -89,24 +89,5 @@ namespace ETW
         {
             return contextSwitchRecorder.GetContextSwitchSpan(startTime, lastTime);
         }
-
-        public DateTime GetLastestEventTime()
-        {
-            var time = new DateTime();
-            foreach (var i in markerRecorderArray)
-            {
-                if (time < i.LastestEventTime)
-                {
-                    time = i.LastestEventTime;
-                }
-            }
-
-            if (time < contextSwitchRecorder.LastestEventTime)
-            {
-                time = contextSwitchRecorder.LastestEventTime;
-            }
-
-            return time;
-        }
     }
 }

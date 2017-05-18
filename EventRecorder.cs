@@ -7,6 +7,7 @@ using System.Threading;
 using Microsoft.Diagnostics.Tracing;
 using Microsoft.Diagnostics.Tracing.Session;
 using Microsoft.Diagnostics.Tracing.Parsers;
+using System.Collections;
 
 namespace ETW
 {
@@ -17,7 +18,7 @@ namespace ETW
 
     public class Record<T> where T : IRecordData
     {
-        private List<T> dataArray;
+        private Queue<T> dataArray;
         private object dataLock;
 
         public TimeSpan Duration { set; get; }
@@ -26,7 +27,7 @@ namespace ETW
         public Record()
         {
             Duration = TimeSpan.FromSeconds(10);
-            dataArray = new List<T>();
+            dataArray = new Queue<T>();
             dataLock = new object();
         }
 
@@ -34,17 +35,26 @@ namespace ETW
         {
             lock (dataLock)
             {
-                dataArray.Add(value);
+                dataArray.Enqueue(value);
 
                 var leastTime = value.Timestamp - Duration;
-                int count = 0;
-                foreach (var i in dataArray)
+                while (dataArray.Count > 0)
                 {
-                    if (i.Timestamp > leastTime) break;
-                    ++count;
+                    if (dataArray.Peek().Timestamp > leastTime) break;
+                    dataArray.Dequeue();
                 }
+            }
+        }
 
-                dataArray.RemoveRange(0, count);
+        private IEnumerable<T> SpanEnum(DateTime startTime, DateTime lastTime)
+        {
+            foreach (var e in dataArray)
+            {
+                if (e.Timestamp >= startTime && e.Timestamp < lastTime)
+                {
+                    yield return e;
+                }
+                else if (e.Timestamp >= lastTime) break;
             }
         }
 
@@ -52,7 +62,7 @@ namespace ETW
         {
             lock (dataLock)
             {
-                return dataArray.FindAll(e => e.Timestamp >= startTime && e.Timestamp < lastTime);
+                return new List<T>(SpanEnum(startTime, lastTime));
             }
         }
     }
@@ -65,12 +75,6 @@ namespace ETW
         protected TraceEventSession Session
         {
             get { return etwSesion; }
-        }
-
-        public DateTime LastestEventTime
-        {
-            get;
-            protected set;
         }
 
         public virtual bool IsKernel { get { return false; } }

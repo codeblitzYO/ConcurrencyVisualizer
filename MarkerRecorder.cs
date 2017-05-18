@@ -102,8 +102,6 @@ namespace ETW
                 thread = data.ThreadID,
                 timestamp = data.TimeStamp
             });
-
-            LastestEventTime = data.TimeStamp;
         }
 
         public List<Marker> GetMarkerSpan(DateTime startTime, DateTime lastTime)

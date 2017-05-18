@@ -15,5 +15,5 @@
             <TextBox x:Name="ProcessName" HorizontalAlignment="Left"  TextWrapping="Wrap" Text="TextBox" VerticalAlignment="Top" Width="177" Margin="5,6,-54,0"/>
         </Grid>
         <local:GraphView x:Name="Graph" Margin="4,36,4,4"/>
-    </Grid>
+	</Grid>
 </Window>

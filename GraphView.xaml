@@ -13,8 +13,8 @@
             <ColumnDefinition Width="100*"/>
         </Grid.ColumnDefinitions>
 
-        <Image Grid.Column="0" x:Name="Index" Margin="0,0,0,0"/>
+        <local:Renderable Grid.Column="0" x:Name="Index" Margin="0,0,0,0"/>
         <GridSplitter Grid.Column="1" HorizontalAlignment="Center" Width="4" Margin="0,0,0,0"/>
-        <Image Grid.Column="2" x:Name="Graph" Margin="0,0,0,0"/>
+		<local:Renderable Grid.Column="2" x:Name="Graph" Margin="0,0,0,0"/>
     </Grid>
 </UserControl>

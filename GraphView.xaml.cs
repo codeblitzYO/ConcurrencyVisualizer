@@ -22,7 +22,7 @@ namespace ETW
     /// </summary>
     public partial class GraphView : UserControl
     {
-        private Random g = new Random();
+        const int RowHeight = 16;
 
         private Sampler dataSource;
         public Sampler DataSource
@@ -42,32 +42,26 @@ namespace ETW
         }
 
         private Timer renderingTimer;
+        private int processorCount;
+
+        private int ProcessorLineStart { get { return 0; } }
+        private int ThreadLineStart { get { return ProcessorLineStart + processorCount + 1; } }
 
         public GraphView()
         {
             InitializeComponent();
 
+            Index.Rendering += Index_Rendering;
+            Graph.Rendering += Graph_Rendering;
+
             renderingTimer = new Timer(10.0f);
             renderingTimer.Elapsed += RenderingTimer_Elapsed;
+
+            processorCount = Environment.ProcessorCount;
         }
 
-        private void RenderingTimer_Elapsed(object sender, ElapsedEventArgs e)
+        private void Graph_Rendering(DrawingContext drawingContext)
         {
-            Dispatcher.Invoke(() =>
-            {
-                InvalidateVisual();
-            });
-        }
-
-        protected override void OnRender(DrawingContext drawingContext)
-        {
-            base.OnRender(drawingContext);
-
-            var brush = new SolidColorBrush(Color.FromRgb(
-                (byte)(g.Next() % 255),
-                (byte)(g.Next() % 255),
-                (byte)(g.Next() % 255)));
-
             if (dataSource == null)
             {
                 return;
@@ -80,7 +74,53 @@ namespace ETW
 
             drawProcessorUsage(drawingContext, Brushes.Blue, contextSwitchData, startTime, lastTime);
             drawThreadUsage(drawingContext, Brushes.Red, contextSwitchData, startTime, lastTime);
+        }
 
+        private void Index_Rendering(DrawingContext drawingContext)
+        {
+            if (dataSource == null)
+            {
+                return;
+            }
+
+            var clip = new RectangleGeometry(new Rect(0, 0, Index.ActualWidth, Index.ActualHeight));
+            drawingContext.PushClip(clip);
+
+            var typeface = new Typeface(System.Drawing.SystemFonts.CaptionFont.Name);
+
+            // core
+            for (var i = 0; i < processorCount; ++i)
+            {
+                var format = new FormattedText(
+                    string.Format("Core{0}", i), System.Globalization.CultureInfo.CurrentCulture, FlowDirection.LeftToRight, typeface, 12.0, Brushes.Black);
+                drawingContext.DrawText(format, new Point(8, (ProcessorLineStart + i) *RowHeight));
+            }
+
+            // threads
+            var line = processorCount + 1;
+
+            var threads = dataSource.TargetProcess.Threads;
+            for (var i = 0; i < threads.Count; ++i)
+            {
+                var thread = threads[i];
+                var format = new FormattedText(
+                    string.Format("Thread {0}", thread.Id), System.Globalization.CultureInfo.CurrentCulture, FlowDirection.LeftToRight, typeface, 12.0, Brushes.Black);
+                drawingContext.DrawText(format, new Point(8, (ThreadLineStart + i) * RowHeight));
+            }
+
+            drawingContext.Pop();
+        }
+
+        private void RenderingTimer_Elapsed(object sender, ElapsedEventArgs e)
+        {
+            Index.Dispatcher.Invoke(() =>
+            {
+                Index.InvalidateVisual();
+            });
+            Graph.Dispatcher.Invoke(() =>
+            {
+                Graph.InvalidateVisual();
+            });
         }
 
         private void drawProcessorUsage(DrawingContext drawingContext, Brush brush, List<ContextSwitch> cs, DateTime startTime, DateTime lastTime)
@@ -112,7 +152,7 @@ namespace ETW
                 timeline[i.Id] = new ThreadUsage() { index = count++ };
             }
 
-            int lineStart = 10;
+            int lineStart = processorCount + 1;
 
             foreach (var i in cs)
             {
@@ -143,8 +183,8 @@ namespace ETW
         {
             var w = (usingTime1 - usingTime0).Ticks / 1000;
             var x = (usingTime1 - startTime).Ticks / 1000;
-            var y = line * 16;
-            var h = 14;
+            var y = line * RowHeight;
+            var h = RowHeight - 2;
 
             drawingContext.DrawRectangle(brush, null, new Rect(x, y, w, h));
         }
