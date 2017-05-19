@@ -83,9 +83,6 @@ namespace ETW
                 return;
             }
 
-            var clip = new RectangleGeometry(new Rect(0, 0, Index.ActualWidth, Index.ActualHeight));
-            drawingContext.PushClip(clip);
-
             var typeface = new Typeface(System.Drawing.SystemFonts.CaptionFont.Name);
 
             // core
@@ -108,7 +105,8 @@ namespace ETW
                 drawingContext.DrawText(format, new Point(8, (ThreadLineStart + i) * RowHeight));
             }
 
-            drawingContext.Pop();
+            ViewScroll.Maximum = Math.Max((ThreadLineStart + threads.Count) * RowHeight - ActualHeight, 0);
+            ViewScroll.ViewportSize = ActualHeight;
         }
 
         private void RenderingTimer_Elapsed(object sender, ElapsedEventArgs e)
@@ -187,6 +185,12 @@ namespace ETW
             var h = RowHeight - 2;
 
             drawingContext.DrawRectangle(brush, null, new Rect(x, y, w, h));
+        }
+
+        private void ViewScroll_ValueChanged(object sender, RoutedPropertyChangedEventArgs<double> e)
+        {
+            Index.RenderTransform = new TranslateTransform(0, -ViewScroll.Value);
+            Graph.RenderTransform = new TranslateTransform(0, -ViewScroll.Value);
         }
     }
 }

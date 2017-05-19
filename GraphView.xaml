@@ -8,13 +8,19 @@
              d:DesignHeight="300" d:DesignWidth="300">
     <Grid Margin="0,0,0,0">
         <Grid.ColumnDefinitions>
-            <ColumnDefinition Width="40*"/>
+            <ColumnDefinition Width="85*"/>
             <ColumnDefinition Width="Auto"/>
-            <ColumnDefinition Width="100*"/>
+            <ColumnDefinition Width="189*"/>
+            <ColumnDefinition Width="Auto"/>
         </Grid.ColumnDefinitions>
 
-        <local:Renderable Grid.Column="0" x:Name="Index" Margin="0,0,0,0"/>
+        <Canvas ClipToBounds="True" Grid.Column="0" >
+            <local:Renderable x:Name="Index" Margin="0,0,0,0" HorizontalContentAlignment="Stretch" VerticalContentAlignment="Stretch" />
+        </Canvas>
         <GridSplitter Grid.Column="1" HorizontalAlignment="Center" Width="4" Margin="0,0,0,0"/>
-		<local:Renderable Grid.Column="2" x:Name="Graph" Margin="0,0,0,0"/>
+        <Canvas ClipToBounds="True" Grid.Column="2">
+            <local:Renderable x:Name="Graph" Margin="0,0,0,0" Grid.ColumnSpan="2" HorizontalContentAlignment="Stretch" VerticalContentAlignment="Stretch"/>
+        </Canvas>
+        <ScrollBar x:Name="ViewScroll" Grid.Column="3" HorizontalAlignment="Left" Margin="0,0,0,0" VerticalContentAlignment="Stretch" Width="Auto" ValueChanged="ViewScroll_ValueChanged" SmallChange="1"/>
     </Grid>
 </UserControl>
