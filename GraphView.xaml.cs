@@ -37,8 +37,9 @@ namespace ETW
 
         class ThreadUsage
         {
-            public int index;
+            public int line;
             public ContextSwitch contextSwitch;
+            public List<List<Marker>> markersStack = new List<List<Marker>>();
         }
 
         private Timer renderingTimer;
@@ -144,13 +145,21 @@ namespace ETW
         {
             Dictionary<int, ThreadUsage> timeline = new Dictionary<int, ThreadUsage>();
 
-            int count = 0;
+            int line = 0;
             foreach (ProcessThread i in dataSource.TargetProcess.Threads)
             {
-                timeline[i.Id] = new ThreadUsage() { index = count++ };
+                var usage = new ThreadUsage() { line = line };
+                for (int k = 0; k < MarkerRecorder.ProvidersGuid.Length; ++k)
+                {
+                    var markers = dataSource.GetMarkerSpan(i.Id, k, startTime, lastTime);
+                    if (markers != null && markers.Count > 0)
+                    {
+                        usage.markersStack.Add(markers);
+                    }
+                }
+                timeline[i.Id] = usage;
+                line += usage.markersStack.Count + 1;
             }
-
-            int lineStart = processorCount + 1;
 
             foreach (var i in cs)
             {
@@ -162,7 +171,7 @@ namespace ETW
 
                 if (thread.contextSwitch.Timestamp.Ticks > 0)
                 {
-                    DrawSpan(drawingContext, brush, lineStart + thread.index, startTime, thread.contextSwitch.timestamp, i.timestamp);
+                    DrawSpan(drawingContext, brush, ThreadLineStart + thread.line, startTime, thread.contextSwitch.timestamp, i.timestamp);
                     thread.contextSwitch.timestamp = new DateTime();
                 }
 

@@ -35,9 +35,29 @@ namespace ETW
 
     class MarkerRecorder : EventRecorder
     {
-        private Record<Marker> markerRecord = new Record<Marker>();
+        private Dictionary<int, Dictionary<Guid, Record<Marker>>> markerThreadsProvidersRecord = new Dictionary<int, Dictionary<Guid, Record<Marker>>>();
+        private object markerThreadsProvidersRecordLock = new object();
 
         public override string SessionName { get { return "MarkerRecorder"; } }
+        public static readonly Guid[] ProvidersGuid = {
+            new Guid("8d4925ab-505a-483b-a7e0-6f824a07a6f0"),
+            new Guid("edbc9dc2-0c50-48e4-88df-65aa0d8ece00"),
+            new Guid("edbc9dc2-0c50-48e4-88df-65aa0d8ece01"),
+            new Guid("edbc9dc2-0c50-48e4-88df-65aa0d8ece02"),
+            new Guid("edbc9dc2-0c50-48e4-88df-65aa0d8ece03"),
+            new Guid("edbc9dc2-0c50-48e4-88df-65aa0d8ece04"),
+            new Guid("edbc9dc2-0c50-48e4-88df-65aa0d8ece05"),
+            new Guid("edbc9dc2-0c50-48e4-88df-65aa0d8ece06"),
+            new Guid("edbc9dc2-0c50-48e4-88df-65aa0d8ece07"),
+            new Guid("edbc9dc2-0c50-48e4-88df-65aa0d8ece08"),
+            new Guid("edbc9dc2-0c50-48e4-88df-65aa0d8ece09"),
+            new Guid("edbc9dc2-0c50-48e4-88df-65aa0d8ece0a"),
+            new Guid("edbc9dc2-0c50-48e4-88df-65aa0d8ece0b"),
+            new Guid("edbc9dc2-0c50-48e4-88df-65aa0d8ece0c"),
+            new Guid("edbc9dc2-0c50-48e4-88df-65aa0d8ece0d"),
+            new Guid("edbc9dc2-0c50-48e4-88df-65aa0d8ece0e"),
+            new Guid("edbc9dc2-0c50-48e4-88df-65aa0d8ece0f"),
+        };
 
         public MarkerRecorder()
         {
@@ -45,25 +65,44 @@ namespace ETW
 
         protected override void InitializeProviders()
         {
-            Session.EnableProvider(new Guid("8d4925ab-505a-483b-a7e0-6f824a07a6f0")); // CV default
-            Session.EnableProvider(new Guid("edbc9dc2-0c50-48e4-88df-65aa0d8ece00"));
-            Session.EnableProvider(new Guid("edbc9dc2-0c50-48e4-88df-65aa0d8ece01"));
-            Session.EnableProvider(new Guid("edbc9dc2-0c50-48e4-88df-65aa0d8ece02"));
-            Session.EnableProvider(new Guid("edbc9dc2-0c50-48e4-88df-65aa0d8ece03"));
-            Session.EnableProvider(new Guid("edbc9dc2-0c50-48e4-88df-65aa0d8ece04"));
-            Session.EnableProvider(new Guid("edbc9dc2-0c50-48e4-88df-65aa0d8ece05"));
-            Session.EnableProvider(new Guid("edbc9dc2-0c50-48e4-88df-65aa0d8ece06"));
-            Session.EnableProvider(new Guid("edbc9dc2-0c50-48e4-88df-65aa0d8ece07"));
-            Session.EnableProvider(new Guid("edbc9dc2-0c50-48e4-88df-65aa0d8ece08"));
-            Session.EnableProvider(new Guid("edbc9dc2-0c50-48e4-88df-65aa0d8ece09"));
-            Session.EnableProvider(new Guid("edbc9dc2-0c50-48e4-88df-65aa0d8ece0a"));
-            Session.EnableProvider(new Guid("edbc9dc2-0c50-48e4-88df-65aa0d8ece0b"));
-            Session.EnableProvider(new Guid("edbc9dc2-0c50-48e4-88df-65aa0d8ece0c"));
-            Session.EnableProvider(new Guid("edbc9dc2-0c50-48e4-88df-65aa0d8ece0d"));
-            Session.EnableProvider(new Guid("edbc9dc2-0c50-48e4-88df-65aa0d8ece0e"));
-            Session.EnableProvider(new Guid("edbc9dc2-0c50-48e4-88df-65aa0d8ece0f"));
-
+            foreach (var i in ProvidersGuid)
+            {
+                Session.EnableProvider(i);
+            }
             Session.Source.AllEvents += OnEvent;
+        }
+
+        private Record<Marker> FindMarkerRecord(int threadId, Guid provider, bool create = false)
+        {
+            Dictionary<Guid, Record<Marker>> threadRecord = null;
+            Record<Marker> markerRecord = null;
+            lock (markerThreadsProvidersRecordLock)
+            {
+                markerThreadsProvidersRecord.TryGetValue(threadId, out threadRecord);
+                if (threadRecord != null)
+                {
+                    if (threadRecord.TryGetValue(provider, out markerRecord))
+                    {
+                        return markerRecord;
+                    }
+                }
+
+                if (create)
+                {
+                    if (threadRecord == null)
+                    {
+                        threadRecord = new Dictionary<Guid, Record<Marker>>();
+                        markerThreadsProvidersRecord.Add(threadId, threadRecord);
+                    }
+                    if (markerRecord == null)
+                    {
+                        markerRecord = new Record<Marker>();
+                        threadRecord.Add(provider, markerRecord);
+                    }
+                    return markerRecord;
+                }
+            }
+            return null;
         }
 
         protected void OnEvent(TraceEvent data)
@@ -104,19 +143,28 @@ namespace ETW
                 }
             }
 
-            markerRecord.Append(new Marker()
+            var markerRecord = FindMarkerRecord(data.ThreadID, data.ProviderGuid, true);
+            if (markerRecord != null)
             {
-                e = e,
-                id = span,
-                name = name,
-                thread = data.ThreadID,
-                timestamp = data.TimeStamp
-            });
+                markerRecord.Append(new Marker()
+                {
+                    e = e,
+                    id = span,
+                    name = name,
+                    thread = data.ThreadID,
+                    timestamp = data.TimeStamp
+                });
+            }
         }
 
-        public List<Marker> GetMarkerSpan(DateTime startTime, DateTime lastTime)
+        public List<Marker> GetMarkerSpan(int threadId, int providerIndex, DateTime startTime, DateTime lastTime)
         {
-            return markerRecord.GetSpan(startTime, lastTime);
+            var markerRecord = FindMarkerRecord(threadId, ProvidersGuid[providerIndex]);
+            if (markerRecord != null)
+            {
+                return markerRecord.GetSpan(startTime, lastTime);
+            }
+            return null;
         }
     }
 }

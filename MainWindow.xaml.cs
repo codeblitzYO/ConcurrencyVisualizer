@@ -29,7 +29,7 @@ namespace ETW
             InitializeComponent();
 
             sampler = new Sampler();
-            sampler.Start("Brawl");
+            sampler.Start("CV");
 
             Graph.DataSource = sampler;
         }

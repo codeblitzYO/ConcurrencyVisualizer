@@ -69,9 +69,9 @@ namespace ETW
             targetProcess = null;
         }
 
-        public List<Marker> GetMarkerSpan(DateTime startTime, DateTime lastTime)
+        public List<Marker> GetMarkerSpan(int threadId, int providerIndex, DateTime startTime, DateTime lastTime)
         {
-            return markerRecorder.GetMarkerSpan(startTime, lastTime);
+            return markerRecorder.GetMarkerSpan(threadId, providerIndex, startTime, lastTime);
         }
 
         public List<ContextSwitch> GetContextSwitchSpan(DateTime startTime, DateTime lastTime)
