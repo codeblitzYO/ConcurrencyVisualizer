@@ -43,6 +43,7 @@ namespace ETW
 
         private Timer renderingTimer;
         private int processorCount;
+        private Typeface defaultTypeface = new Typeface(System.Drawing.SystemFonts.CaptionFont.Name);
 
         private int ProcessorLineStart { get { return 0; } }
         private int ThreadLineStart { get { return ProcessorLineStart + processorCount + 1; } }
@@ -50,12 +51,12 @@ namespace ETW
         public GraphView()
         {
             InitializeComponent();
-
+            
             Index.Rendering += Index_Rendering;
             Graph.Rendering += Graph_Rendering;
 
-            renderingTimer = new Timer(10.0f);
-            renderingTimer.Elapsed += RenderingTimer_Elapsed;
+            renderingTimer = new Timer(16.0f);
+            //renderingTimer.Elapsed += RenderingTimer_Elapsed;
 
             processorCount = Environment.ProcessorCount;
         }
@@ -83,13 +84,11 @@ namespace ETW
                 return;
             }
 
-            var typeface = new Typeface(System.Drawing.SystemFonts.CaptionFont.Name);
-
             // core
             for (var i = 0; i < processorCount; ++i)
             {
                 var format = new FormattedText(
-                    string.Format("Core{0}", i), System.Globalization.CultureInfo.CurrentCulture, FlowDirection.LeftToRight, typeface, 12.0, Brushes.Black);
+                    string.Format("Core{0}", i), System.Globalization.CultureInfo.CurrentCulture, FlowDirection.LeftToRight, defaultTypeface, 12.0, Brushes.Black);
                 drawingContext.DrawText(format, new Point(8, (ProcessorLineStart + i) *RowHeight));
             }
 
@@ -99,7 +98,7 @@ namespace ETW
             {
                 var thread = threads[i];
                 var format = new FormattedText(
-                    string.Format("Thread {0}", thread.Id), System.Globalization.CultureInfo.CurrentCulture, FlowDirection.LeftToRight, typeface, 12.0, Brushes.Black);
+                    string.Format("Thread {0}", thread.Id), System.Globalization.CultureInfo.CurrentCulture, FlowDirection.LeftToRight, defaultTypeface, 12.0, Brushes.Black);
                 drawingContext.DrawText(format, new Point(8, (ThreadLineStart + i) * RowHeight));
             }
 
@@ -108,6 +107,18 @@ namespace ETW
         }
 
         private void RenderingTimer_Elapsed(object sender, ElapsedEventArgs e)
+        {
+            Index.Dispatcher.Invoke(() =>
+            {
+                Index.InvalidateVisual();
+            });
+            Graph.Dispatcher.Invoke(() =>
+            {
+                Graph.InvalidateVisual();
+            });
+        }
+
+        public void Render()
         {
             Index.Dispatcher.Invoke(() =>
             {
@@ -141,6 +152,7 @@ namespace ETW
         private void drawThreadUsage(DrawingContext drawingContext, Brush brush, List<ContextSwitch> cs, DateTime startTime, DateTime lastTime)
         {
             Dictionary<int, ThreadUsage> timeline = new Dictionary<int, ThreadUsage>();
+            timeline[0] = new ThreadUsage();
 
             int line = 0;
             foreach (ProcessThread i in dataSource.TargetProcess.Threads)
@@ -161,32 +173,31 @@ namespace ETW
 
             foreach (var i in cs)
             {
-                ThreadUsage thread;
-                if (!timeline.TryGetValue(i.oldThread, out thread))
+                if (i.oldThread != 0)
                 {
-                    continue;
-                }
+                    ThreadUsage thread = timeline[i.oldThread];
 
-                if (thread.contextSwitch.Timestamp.Ticks > 0)
-                {
-                    DrawSpan(drawingContext, brush, ThreadLineStart + thread.line, startTime, thread.contextSwitch.timestamp, i.timestamp);
-                    thread.contextSwitch.timestamp = new DateTime();
-                }
-
-                if (timeline.ContainsKey(i.newThread))
-                {
-                    ref var data = ref timeline[i.newThread].contextSwitch;
-                    if (data.timestamp.Ticks == 0)
+                    if (thread.contextSwitch.Timestamp.Ticks > 0)
                     {
-                        data = i;
+                        DrawSpan(drawingContext, brush, ThreadLineStart + thread.line, startTime, thread.contextSwitch.timestamp, i.timestamp);
+                        thread.contextSwitch.timestamp = new DateTime();
                     }
+                }
+
+                ref var data = ref timeline[i.newThread].contextSwitch;
+                if (data.timestamp.Ticks == 0)
+                {
+                    data = i;
                 }
             }
         }
 
         private void drawThreadMarker(DrawingContext drawingContext, List<Marker> markers, int line, DateTime startTime, DateTime lastTime)
         {
-            Marker p = new Marker();
+            Marker p = new Marker()
+            {
+                timestamp = startTime
+            };
             foreach (var i in markers)
             {
                 switch (i.e)
@@ -198,6 +209,7 @@ namespace ETW
                         if (p.e == Marker.Event.EnterSpan)
                         {
                             DrawSpan(drawingContext, Brushes.Azure, line, startTime, p.Timestamp, i.Timestamp, p.name);
+                            p.e = Marker.Event.Unknown;
                         }
                         break;
                     case Marker.Event.Flag:
@@ -212,17 +224,17 @@ namespace ETW
 
         private void DrawSpan(DrawingContext drawingContext, Brush brush, int line, DateTime startTime, DateTime usingTime0, DateTime usingTime1, string text = null)
         {
-            var w = (usingTime1 - usingTime0).Ticks / 1000;
-            var x = (usingTime1 - startTime).Ticks / 1000;
+            var w = Math.Max((usingTime1 - usingTime0).Ticks / 200, 1);
+            var x = (usingTime1 - startTime).Ticks / 200;
             var y = line * RowHeight;
             var h = RowHeight - 2;
 
             drawingContext.DrawRectangle(brush, null, new Rect(x, y, w, h));
-            if(!string.IsNullOrEmpty(text))
+            if(!string.IsNullOrEmpty(text) && w > 16)
             {
-                var typeface = new Typeface(System.Drawing.SystemFonts.CaptionFont.Name);
                 var format = new FormattedText(
-                    text, System.Globalization.CultureInfo.CurrentCulture, FlowDirection.LeftToRight, typeface, 12, Brushes.Black);
+                    text, System.Globalization.CultureInfo.CurrentCulture, FlowDirection.LeftToRight, defaultTypeface, 12, Brushes.Black);
+                format.MaxTextWidth = w;
                 drawingContext.DrawText(format, new Point(x, y));
             }
         }
@@ -230,7 +242,7 @@ namespace ETW
         private void ViewScroll_ValueChanged(object sender, RoutedPropertyChangedEventArgs<double> e)
         {
             Index.RenderTransform = new TranslateTransform(0, -ViewScroll.Value);
-            Graph.RenderTransform = new TranslateTransform(-100, -ViewScroll.Value);
+            Graph.RenderTransform = new TranslateTransform(-200, -ViewScroll.Value);
         }
     }
 }

@@ -44,11 +44,7 @@ namespace ETW
     }
 
     class ContextSwitchRecorder : EventRecorder
-    {
-        const int RecordCountMax = 100000;
-
-        public static readonly Guid DefaultGuid = new Guid("1AC26ADB-2AA9-482F-AFED-3ADA43EA46DD");
-            
+    {            
         private Record<ContextSwitch> csRecord = new Record<ContextSwitch>();
         private Record<Stackwalk> swRecord = new Record<Stackwalk>();
 
@@ -106,14 +102,14 @@ namespace ETW
                     ? ContextSwitch.ActionType.Stay
                     : (data.NewProcessID == TargetProcess.Id)
                         ? ContextSwitch.ActionType.Enter
-                        : ContextSwitch.ActionType.Leave;            
+                        : ContextSwitch.ActionType.Leave;      
 
             csRecord.Append(new ContextSwitch()
             {
                 action = processAction,
                 processor = data.ProcessorNumber,
-                oldThread = data.OldThreadID,
-                newThread = data.NewThreadID,
+                oldThread = (data.OldProcessID == TargetProcess.Id) ? data.OldThreadID : 0,
+                newThread = (data.NewProcessID == TargetProcess.Id) ? data.NewThreadID : 0,
                 timestamp = data.TimeStamp
             });
         }
