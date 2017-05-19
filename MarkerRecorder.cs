@@ -13,7 +13,8 @@ namespace ETW
     {
         public enum Event
         {
-            EnterSpan = 1,
+            Unknown,
+            EnterSpan,
             LeaveSpan,
             Flag,
             Message,

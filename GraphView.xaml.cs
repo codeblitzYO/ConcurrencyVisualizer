@@ -39,7 +39,6 @@ namespace ETW
         {
             public int line;
             public ContextSwitch contextSwitch;
-            public List<List<Marker>> markersStack = new List<List<Marker>>();
         }
 
         private Timer renderingTimer;
@@ -69,7 +68,7 @@ namespace ETW
             }
 
             var lastTime = DateTime.Now - TimeSpan.FromSeconds(5);
-            var startTime = lastTime - TimeSpan.FromMilliseconds(50);
+            var startTime = lastTime - TimeSpan.FromMilliseconds(100);
 
             var contextSwitchData = dataSource.GetContextSwitchSpan(startTime, lastTime);
 
@@ -95,8 +94,6 @@ namespace ETW
             }
 
             // threads
-            var line = processorCount + 1;
-
             var threads = dataSource.TargetProcess.Threads;
             for (var i = 0; i < threads.Count; ++i)
             {
@@ -154,11 +151,12 @@ namespace ETW
                     var markers = dataSource.GetMarkerSpan(i.Id, k, startTime, lastTime);
                     if (markers != null && markers.Count > 0)
                     {
-                        usage.markersStack.Add(markers);
+                        line++;
+                        drawThreadMarker(drawingContext, markers, ThreadLineStart + line, startTime, lastTime);
                     }
                 }
                 timeline[i.Id] = usage;
-                line += usage.markersStack.Count + 1;
+                line++;
             }
 
             foreach (var i in cs)
@@ -186,7 +184,33 @@ namespace ETW
             }
         }
 
-        private void DrawSpan(DrawingContext drawingContext, Brush brush, int line, DateTime startTime, DateTime usingTime0, DateTime usingTime1)
+        private void drawThreadMarker(DrawingContext drawingContext, List<Marker> markers, int line, DateTime startTime, DateTime lastTime)
+        {
+            Marker p = new Marker();
+            foreach (var i in markers)
+            {
+                switch (i.e)
+                {
+                    case Marker.Event.EnterSpan:
+                        p = i;
+                        break;
+                    case Marker.Event.LeaveSpan:
+                        if (p.e == Marker.Event.EnterSpan)
+                        {
+                            DrawSpan(drawingContext, Brushes.Azure, line, startTime, p.Timestamp, i.Timestamp, p.name);
+                        }
+                        break;
+                    case Marker.Event.Flag:
+                        break;
+                    case Marker.Event.Message:
+                        break;
+                    case Marker.Event.Unknown:
+                        break;
+                }
+            }
+        }
+
+        private void DrawSpan(DrawingContext drawingContext, Brush brush, int line, DateTime startTime, DateTime usingTime0, DateTime usingTime1, string text = null)
         {
             var w = (usingTime1 - usingTime0).Ticks / 1000;
             var x = (usingTime1 - startTime).Ticks / 1000;
@@ -194,12 +218,19 @@ namespace ETW
             var h = RowHeight - 2;
 
             drawingContext.DrawRectangle(brush, null, new Rect(x, y, w, h));
+            if(!string.IsNullOrEmpty(text))
+            {
+                var typeface = new Typeface(System.Drawing.SystemFonts.CaptionFont.Name);
+                var format = new FormattedText(
+                    text, System.Globalization.CultureInfo.CurrentCulture, FlowDirection.LeftToRight, typeface, 12, Brushes.Black);
+                drawingContext.DrawText(format, new Point(x, y));
+            }
         }
 
         private void ViewScroll_ValueChanged(object sender, RoutedPropertyChangedEventArgs<double> e)
         {
             Index.RenderTransform = new TranslateTransform(0, -ViewScroll.Value);
-            Graph.RenderTransform = new TranslateTransform(0, -ViewScroll.Value);
+            Graph.RenderTransform = new TranslateTransform(-100, -ViewScroll.Value);
         }
     }
 }

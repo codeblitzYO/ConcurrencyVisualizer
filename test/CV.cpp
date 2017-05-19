@@ -14,7 +14,7 @@ void test1()
 	std::function<void(int)> f = [&](int n) {
 		cvMarker::push("f");
 
-		std::this_thread::sleep_for(std::chrono::microseconds(100));
+		std::this_thread::sleep_for(std::chrono::milliseconds(5));
 		if (n < 8)
 		{
 			g.run([&]() { f(++n); });
