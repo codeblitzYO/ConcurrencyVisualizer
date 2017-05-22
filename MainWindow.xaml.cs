@@ -29,7 +29,7 @@ namespace ETW
             InitializeComponent();
 
             sampler = new Sampler();
-            sampler.Start("MECH");
+            sampler.Start("CV");
 
             Graph.DataSource = sampler;
         }
@@ -56,6 +56,11 @@ namespace ETW
         private void Button_Click(object sender, RoutedEventArgs e)
         {
             Graph.Render();
+        }
+
+        private void Scale_ValueChanged(object sender, RoutedPropertyChangedEventArgs<double> e)
+        {
+            Graph.TimeScale = ((float)e.NewValue);
         }
     }
 }
