@@ -18,9 +18,10 @@
             <local:Renderable x:Name="Index" Margin="0,0,0,0" HorizontalContentAlignment="Stretch" VerticalContentAlignment="Stretch" />
         </Canvas>
         <GridSplitter Grid.Column="1" HorizontalAlignment="Center" Width="4" Margin="0,0,0,0"/>
-        <Canvas ClipToBounds="True" Grid.Column="2" >
-            <local:Renderable x:Name="Graph" Margin="0,0,0,0" HorizontalContentAlignment="Stretch" VerticalContentAlignment="Stretch" />
-        </Canvas>
+        <Grid x:Name="GraphContainer" ClipToBounds="True" Grid.Column="2" SizeChanged="GraphContainer_SizeChanged" >
+            <local:Renderable x:Name="Graph" Margin="0,0,0,0" VerticalContentAlignment="Stretch" HorizontalContentAlignment="Stretch" />
+            <ScrollBar x:Name="GraphScroll" Height="Auto" Orientation="Horizontal" VerticalAlignment="Bottom" VerticalContentAlignment="Bottom" ValueChanged="GraphScroll_ValueChanged" SmallChange="1"/>
+        </Grid>
         <ScrollBar x:Name="ViewScroll" Grid.Column="3" HorizontalAlignment="Left" Margin="0,0,0,0" VerticalContentAlignment="Stretch" Width="Auto" ValueChanged="ViewScroll_ValueChanged" SmallChange="1"/>
     </Grid>
 </UserControl>

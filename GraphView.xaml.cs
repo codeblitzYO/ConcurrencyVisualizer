@@ -96,7 +96,7 @@ namespace ETW
         private Typeface defaultTypeface = new Typeface(System.Drawing.SystemFonts.CaptionFont.Name);
         private Snapshot snapshot = new Snapshot();
 
-        private int ProcessorLineStart { get { return 0; } }
+        private int ProcessorLineStart { get { return 3; } }
         private int ThreadLineStart { get { return ProcessorLineStart + processorCount + 1; } }
 
         private float timeScale = 200;
@@ -109,8 +109,6 @@ namespace ETW
                 RefreshView();
             }
         }
-
-
 
 
         public GraphView()
@@ -135,6 +133,7 @@ namespace ETW
 
         private void Graph_Rendering(DrawingContext drawingContext)
         {
+            DrawMeasure(drawingContext, Brushes.Black);
             DrawProcessorUsage(drawingContext, Brushes.Blue);
             DrawThreadUsage(drawingContext, Brushes.Red);
         }
@@ -183,6 +182,8 @@ namespace ETW
 
         void RefreshView()
         {
+            GraphScroll.Maximum = (snapshot.lastTime - snapshot.startTime).Ticks / TimeScale;
+
             Index.Dispatcher.Invoke(() =>
             {
                 Index.InvalidateVisual();
@@ -191,6 +192,11 @@ namespace ETW
             {
                 Graph.InvalidateVisual();
             });
+        }
+
+        private void DrawMeasure(DrawingContext drawingContext, Brush brush)
+        {
+
         }
 
         private void DrawProcessorUsage(DrawingContext drawingContext, Brush brush)
@@ -203,7 +209,7 @@ namespace ETW
 
                 if (old.action == ContextSwitch.ActionType.Enter && i.action == ContextSwitch.ActionType.Leave)
                 {
-                    DrawSpan(drawingContext, brush, i.processor, snapshot.startTime, old.timestamp, i.timestamp);
+                    DrawSpan(drawingContext, brush, ProcessorLineStart + i.processor, snapshot.startTime, old.timestamp, i.timestamp);
                 }
                 if (i.action != ContextSwitch.ActionType.Stay)
                 {
@@ -306,6 +312,19 @@ namespace ETW
 
             var group = (TransformGroup)Graph.RenderTransform;
             ((TranslateTransform)group.Children[0]).Y = -ViewScroll.Value;
+        }
+
+        private void GraphContainer_SizeChanged(object sender, SizeChangedEventArgs e)
+        {
+            GraphScroll.ViewportSize = e.NewSize.Width;
+        }
+
+        private void GraphScroll_ValueChanged(object sender, RoutedPropertyChangedEventArgs<double> e)
+        {
+            var group = (TransformGroup)Graph.RenderTransform;
+            ((TranslateTransform)group.Children[0]).X = -e.NewValue;
+
+
         }
     }
 }
