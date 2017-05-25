@@ -117,7 +117,7 @@ namespace ETW
 
             Index.Rendering += Index_Rendering;
             Graph.Rendering += Graph_Rendering;
-            Measure.Rendering += Measure_Rendering;
+            TimeMeasure.Rendering += Measure_Rendering;
 
             renderingTimer = new Timer(16.0f);
             //renderingTimer.Elapsed += RenderingTimer_Elapsed;
@@ -129,7 +129,7 @@ namespace ETW
 
             Index.RenderTransform = new TranslateTransform();
 
-            Measure.RenderTransform = new TranslateTransform();
+            TimeMeasure.RenderTransform = new TranslateTransform();
 
             processorCount = Environment.ProcessorCount;
         }
@@ -199,9 +199,9 @@ namespace ETW
             {
                 Graph.InvalidateVisual();
             });
-            Measure.Dispatcher.Invoke(() =>
+            TimeMeasure.Dispatcher.Invoke(() =>
             {
-                Measure.InvalidateVisual();
+                TimeMeasure.InvalidateVisual();
             });
         }
 
@@ -355,7 +355,7 @@ namespace ETW
             var group = (TransformGroup)Graph.RenderTransform;
             ((TranslateTransform)group.Children[0]).X = -e.NewValue;
 
-            ((TranslateTransform)Measure.RenderTransform).X = -e.NewValue;
+            ((TranslateTransform)TimeMeasure.RenderTransform).X = -e.NewValue;
         }
     }
 }

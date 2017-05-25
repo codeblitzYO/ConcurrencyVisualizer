@@ -19,7 +19,7 @@
         </Canvas>
         <GridSplitter Grid.Column="1" HorizontalAlignment="Center" Width="4" Margin="0,0,0,0"/>
         <Grid x:Name="GraphContainer" ClipToBounds="True" Grid.Column="2" SizeChanged="GraphContainer_SizeChanged" >
-            <local:Renderable x:Name="Measure" Height="23" VerticalAlignment="Top" HorizontalContentAlignment="Stretch" Background="{DynamicResource {x:Static SystemColors.HighlightTextBrushKey}}"/>
+            <local:Renderable x:Name="TimeMeasure" Height="23" VerticalAlignment="Top" HorizontalContentAlignment="Stretch" Background="{DynamicResource {x:Static SystemColors.HighlightTextBrushKey}}"/>
             <local:Renderable x:Name="Graph" Margin="0,0,0,0" VerticalContentAlignment="Stretch" HorizontalContentAlignment="Stretch"/>
             <ScrollBar x:Name="GraphScroll" Height="Auto" Orientation="Horizontal" VerticalAlignment="Bottom" VerticalContentAlignment="Bottom" ValueChanged="GraphScroll_ValueChanged" SmallChange="1"/>
         </Grid>
