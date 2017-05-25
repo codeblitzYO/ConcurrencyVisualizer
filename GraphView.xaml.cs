@@ -117,6 +117,7 @@ namespace ETW
 
             Index.Rendering += Index_Rendering;
             Graph.Rendering += Graph_Rendering;
+            Measure.Rendering += Measure_Rendering;
 
             renderingTimer = new Timer(16.0f);
             //renderingTimer.Elapsed += RenderingTimer_Elapsed;
@@ -128,12 +129,18 @@ namespace ETW
 
             Index.RenderTransform = new TranslateTransform();
 
+            Measure.RenderTransform = new TranslateTransform();
+
             processorCount = Environment.ProcessorCount;
+        }
+
+        private void Measure_Rendering(DrawingContext drawingContext)
+        {
+            DrawMeasure(drawingContext, Brushes.Black);
         }
 
         private void Graph_Rendering(DrawingContext drawingContext)
         {
-            DrawMeasure(drawingContext, Brushes.Black);
             DrawProcessorUsage(drawingContext, Brushes.Blue);
             DrawThreadUsage(drawingContext, Brushes.Red);
         }
@@ -182,7 +189,7 @@ namespace ETW
 
         void RefreshView()
         {
-            GraphScroll.Maximum = (snapshot.lastTime - snapshot.startTime).Ticks / TimeScale;
+            UpdateGraphScrollParam();
 
             Index.Dispatcher.Invoke(() =>
             {
@@ -192,11 +199,35 @@ namespace ETW
             {
                 Graph.InvalidateVisual();
             });
+            Measure.Dispatcher.Invoke(() =>
+            {
+                Measure.InvalidateVisual();
+            });
+        }
+
+        private void UpdateGraphScrollParam()
+        {
+            GraphScroll.Maximum = (snapshot.lastTime - snapshot.startTime).Ticks / TimeScale - Graph.ActualWidth;
+            GraphScroll.ViewportSize = Graph.ActualWidth;
         }
 
         private void DrawMeasure(DrawingContext drawingContext, Brush brush)
         {
+            var span = snapshot.lastTime - snapshot.startTime;
+            var ticks = span.Ticks;
 
+            var pen = new Pen(brush, 1);
+
+            long step = TimeSpan.TicksPerMillisecond;
+            long progress = 0;
+            while(progress <= ticks)
+            {
+                var x = progress / timeScale;
+                drawingContext.DrawLine(pen, new Point(x, 0), new Point(x, 8));
+
+                progress += step;
+            }
+            //
         }
 
         private void DrawProcessorUsage(DrawingContext drawingContext, Brush brush)
@@ -316,7 +347,7 @@ namespace ETW
 
         private void GraphContainer_SizeChanged(object sender, SizeChangedEventArgs e)
         {
-            GraphScroll.ViewportSize = e.NewSize.Width;
+            UpdateGraphScrollParam();
         }
 
         private void GraphScroll_ValueChanged(object sender, RoutedPropertyChangedEventArgs<double> e)
@@ -324,7 +355,7 @@ namespace ETW
             var group = (TransformGroup)Graph.RenderTransform;
             ((TranslateTransform)group.Children[0]).X = -e.NewValue;
 
-
+            ((TranslateTransform)Measure.RenderTransform).X = -e.NewValue;
         }
     }
 }
