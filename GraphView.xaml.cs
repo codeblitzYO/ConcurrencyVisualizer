@@ -45,7 +45,7 @@ namespace ETW
 
         class Snapshot
         {
-            public struct Thread
+            public class Thread
             {
                 public ProcessThread processThread;
                 public List<List<Marker>> markerSpan;
@@ -91,6 +91,155 @@ namespace ETW
             }
         }
 
+        class SpanData
+        {
+            public Snapshot.Thread Thread { get; private set; }
+            public List<Marker> Markers { get; private set; }
+            public List<ContextSwitch> ConstextSwitches { get; private set; }
+
+            public DateTime StartTime { get; private set; }
+            public DateTime LastTime { get; private set; }
+            public TimeSpan Duration { get; private set; }
+
+            SpanData()
+            {
+            }
+
+            static public SpanData Gather(Snapshot snapshot, int line, DateTime startTime, DateTime lastTime)
+            {
+                if (snapshot.threads.Length == 0)
+                {
+                    return null;
+                }
+
+                Snapshot.Thread thread = snapshot.threads[0];
+                foreach (var i in snapshot.threads)
+                {
+                    if (i.line > line) break;
+                    thread = i;
+                }
+
+                var spanData = new SpanData();
+                spanData.Thread = thread;
+                spanData.Markers = new List<Marker>();
+                spanData.ConstextSwitches = new List<ContextSwitch>();
+
+                var providerIndex = line - thread.line - 1;
+
+                if (providerIndex >= 0 && providerIndex < thread.markerSpan.Count)
+                {
+                    spanData.GatherMarker(thread.markerSpan[providerIndex], startTime, lastTime);
+                }
+                else
+                {
+                    spanData.GatherContextSwitch(snapshot, startTime, lastTime);
+                }
+
+                return spanData;
+            }
+
+            void GatherMarker(List<Marker> markerArray, DateTime startTime, DateTime lastTime)
+            {
+                var timeSpan = lastTime - startTime;
+
+                Action<Marker, Marker> saveStat = (x, y) =>
+                {
+                    StartTime = x.timestamp;
+                    LastTime = y.timestamp;
+                    Duration = LastTime - StartTime;
+                };
+
+                for (var i = 0; i < markerArray.Count; ++i)
+                {
+                    var marker = markerArray[i];
+                    if (marker.timestamp >= lastTime)
+                    {
+                        break;
+                    }
+                    switch (marker.e)
+                    {
+                        case Marker.Event.EnterSpan:
+                            for (var j = i + 1; j < markerArray.Count; ++j)
+                            {
+                                var marker2 = markerArray[j];
+                                if (marker2.e == Marker.Event.LeaveSpan && marker.id == marker2.id)
+                                {
+                                    var span = marker2.timestamp - marker.timestamp;
+                                    var width = Math.Max(marker2.timestamp.Ticks, lastTime.Ticks) - Math.Min(marker.timestamp.Ticks, startTime.Ticks);
+                                    if (width <= timeSpan.Ticks + span.Ticks)
+                                    {
+                                        Markers.Add(marker);
+                                        Markers.Add(marker2);
+                                        saveStat(marker, marker2);
+                                        break;
+                                    }
+                                }
+                            }
+                            break;
+                        case Marker.Event.Flag:
+                        case Marker.Event.Message:
+                            if (marker.timestamp >= startTime && marker.timestamp < lastTime)
+                            {
+                                Markers.Add(marker);
+                                saveStat(marker, marker);
+                            }
+                            break;
+                    }
+                }
+                Markers.Sort((x, y) =>
+                {
+                    return x.timestamp.CompareTo(y.timestamp);
+                });
+            }
+
+            void GatherContextSwitch(Snapshot snapshot, DateTime startTime, DateTime lastTime)
+            {
+                Action<ContextSwitch, ContextSwitch> saveStat = (x, y) =>
+                {
+                    StartTime = x.timestamp;
+                    LastTime = y.timestamp;
+                    Duration = LastTime - StartTime;
+                };
+
+                var timeSpan = lastTime - startTime;
+                var contextSwiches = snapshot.contextSwitchSpan;
+                for (var i = 0; i < contextSwiches.Count; ++i)
+                {
+                    var contextSwitch = contextSwiches[i];
+                    if (contextSwitch.timestamp >= lastTime)
+                    {
+                        break;
+                    }
+                    if (contextSwitch.newThread == Thread.processThread.Id)
+                    {
+                        for (var j = i + 1; j < contextSwiches.Count; ++j)
+                        {
+                            var contextSwitch2 = contextSwiches[j];
+                            if (contextSwitch2.oldThread != Thread.processThread.Id)
+                            {
+                                continue;
+                            }
+
+                            var span = contextSwitch2.timestamp - contextSwitch.timestamp;
+                            var width = Math.Max(contextSwitch2.timestamp.Ticks, lastTime.Ticks) - Math.Min(contextSwitch.timestamp.Ticks, startTime.Ticks);
+
+                            if (width <= timeSpan.Ticks + span.Ticks)
+                            {
+                                ConstextSwitches.Add(contextSwitch);
+                                ConstextSwitches.Add(contextSwitch2);
+                                saveStat(contextSwitch, contextSwitch2);
+                                break;
+                            }
+                        }
+                    }
+                }
+                ConstextSwitches.Sort((x, y) =>
+                {
+                    return x.timestamp.CompareTo(y.timestamp);
+                });
+            }
+        };
+
         private Timer renderingTimer;
         private int processorCount;
         private Typeface defaultTypeface = new Typeface(System.Drawing.SystemFonts.CaptionFont.Name);
@@ -99,8 +248,8 @@ namespace ETW
         private int ProcessorLineStart { get { return 3; } }
         private int ThreadLineStart { get { return ProcessorLineStart + processorCount + 1; } }
 
-        private float timeScale = 200;
-        public float TimeScale
+        private double timeScale = 200;
+        public double TimeScale
         {
             get { return timeScale; }
             set
@@ -207,7 +356,7 @@ namespace ETW
 
         private void UpdateGraphScrollParam()
         {
-            GraphScroll.Maximum = (snapshot.lastTime - snapshot.startTime).Ticks / TimeScale - Graph.ActualWidth;
+            GraphScroll.Maximum = TickToPixel((snapshot.lastTime - snapshot.startTime).Ticks) - Graph.ActualWidth;
             GraphScroll.ViewportSize = Graph.ActualWidth;
         }
 
@@ -222,7 +371,7 @@ namespace ETW
             long progress = 0;
             while(progress <= ticks)
             {
-                var x = progress / timeScale;
+                var x = TickToPixel(progress);
                 drawingContext.DrawLine(pen, new Point(x, 0), new Point(x, 8));
 
                 progress += step;
@@ -322,8 +471,8 @@ namespace ETW
 
         private void DrawSpan(DrawingContext drawingContext, Brush brush, int line, DateTime startTime, DateTime usingTime0, DateTime usingTime1, string text = null)
         {
-            var w = Math.Max((usingTime1 - usingTime0).Ticks / timeScale, 1);
-            var x = (usingTime1 - startTime).Ticks / timeScale;
+            var w = TickToPixel(Math.Max((usingTime1 - usingTime0).Ticks, 1));
+            var x = TickToPixel((usingTime1 - startTime).Ticks);
             var y = line * RowHeight;
             var h = RowHeight - 2;
 
@@ -356,6 +505,55 @@ namespace ETW
             ((TranslateTransform)group.Children[0]).X = -e.NewValue;
 
             ((TranslateTransform)TimeMeasure.RenderTransform).X = -e.NewValue;
+        }
+
+        private void Graph_MouseEnter(object sender, MouseEventArgs e)
+        {
+            var position = e.GetPosition(Graph);
+
+            var line = (int)Math.Floor((position.Y - ThreadLineStart * RowHeight) / RowHeight);
+            if (line < 0)
+            {
+                return;
+            }
+
+            var startTime = snapshot.startTime + TimeSpan.FromTicks(PixelToTick(position.X));
+            var lastTime = startTime + TimeSpan.FromTicks(1);
+
+            var gather = SpanData.Gather(snapshot, line, startTime, lastTime);
+            if (gather != null)
+            {
+                string content = "";
+                content += "ID: " + gather.Thread.processThread.Id + "\n";
+                content += "Duration: " + gather.Duration.TotalMilliseconds + "ms\n";
+                content += "Start Time: " + gather.StartTime + "\n";
+                content += "Last Time: " + gather.LastTime + "\n";
+
+                var formattedText = new FormattedText(
+                    content, System.Globalization.CultureInfo.CurrentCulture, FlowDirection.LeftToRight, defaultTypeface, Description.FontSize, Brushes.Black);
+
+                Description.Width = formattedText.Width;
+                Description.Height = formattedText.Height;
+                Description.Content = content;
+            }
+
+            Description.Visibility = Visibility.Visible;
+            Description.Margin = new Thickness(position.X - GraphScroll.Value, position.Y - ViewScroll.Value, 0, 0);
+        }
+
+        private void Graph_MouseLeave(object sender, MouseEventArgs e)
+        {
+            Description.Visibility = Visibility.Hidden;
+        }
+
+        private double TickToPixel(long ticks)
+        {
+            return ticks / timeScale;
+        }
+
+        private long PixelToTick(double pixels)
+        {
+            return (long)(pixels * timeScale);
         }
     }
 }
