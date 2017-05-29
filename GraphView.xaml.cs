@@ -30,11 +30,9 @@ namespace ETW
             set
             {
                 dataSource = value;
-                renderingTimer.Enabled = value != null;
             }
         }
 
-        private Timer renderingTimer;
         private int processorCount;
         private Typeface defaultTypeface = new Typeface(System.Drawing.SystemFonts.CaptionFont.Name);
         private Snapshot snapshot = new Snapshot();
@@ -53,17 +51,9 @@ namespace ETW
             }
         }
 
-
         public GraphView()
         {
             InitializeComponent();
-
-            Index.Rendering += Index_Rendering;
-            Graph.Rendering += Graph_Rendering;
-            TimeMeasure.Rendering += Measure_Rendering;
-
-            renderingTimer = new Timer(16.0f);
-            //renderingTimer.Elapsed += RenderingTimer_Elapsed;
 
             var transformGroup = new TransformGroup();
             Graph.RenderTransform = transformGroup;
@@ -77,42 +67,64 @@ namespace ETW
             processorCount = Environment.ProcessorCount;
         }
 
-        private void Measure_Rendering(DrawingContext drawingContext)
+        private void Measure_Rendering()
         {
-            DrawMeasure(drawingContext, Brushes.Black);
-        }
+            var visual = new DrawingVisual();
 
-        private void Graph_Rendering(DrawingContext drawingContext)
-        {
-            DrawProcessorUsage(drawingContext, Brushes.Blue);
-            DrawThreadUsage(drawingContext, Brushes.Red);
-        }
-
-        private void Index_Rendering(DrawingContext drawingContext)
-        {
-            // core
-            for (var i = 0; i < processorCount; ++i)
+            using (var context = visual.RenderOpen())
             {
-                var format = new FormattedText(
-                    string.Format("Core{0}", i), System.Globalization.CultureInfo.CurrentCulture, FlowDirection.LeftToRight, defaultTypeface, 12.0, Brushes.Black);
-                drawingContext.DrawText(format, new Point(8, (ProcessorLineStart + i) * RowHeight));
+                DrawMeasure(context, Brushes.Black);
             }
 
-            // threads
-            var line = 0;
-            var threads = snapshot.threads;
-            for (var i = 0; i < threads.Length; ++i)
-            {
-                var thread = threads[i];
-                var format = new FormattedText(
-                    string.Format("Thread {0}", thread.ProcessThread.Id), System.Globalization.CultureInfo.CurrentCulture, FlowDirection.LeftToRight, defaultTypeface, 12.0, Brushes.Black);
-                drawingContext.DrawText(format, new Point(8, (ThreadLineStart + thread.Line) * RowHeight));
-                line = Math.Max(line, thread.Line);
-            }
-            ++line;
+            TimeMeasure.MainVisual = visual;
+        }
 
-            ViewScroll.Maximum = Math.Max((ThreadLineStart + line) * RowHeight - ActualHeight, 0);
-            ViewScroll.ViewportSize = ActualHeight;
+        private void Graph_Rendering()
+        {
+            var visual = new DrawingVisual();
+
+            using (var context = visual.RenderOpen())
+            {
+                DrawProcessorUsage(context, Brushes.Blue);
+                DrawThreadUsage(context, Brushes.Red);
+            }
+
+            Graph.MainVisual = visual;
+        }
+
+        private void Index_Rendering()
+        {
+            var visual = new DrawingVisual();
+
+            using (var context = visual.RenderOpen())
+            {
+
+                // core
+                for (var i = 0; i < processorCount; ++i)
+                {
+                    var format = new FormattedText(
+                        string.Format("Core{0}", i), System.Globalization.CultureInfo.CurrentCulture, FlowDirection.LeftToRight, defaultTypeface, 12.0, Brushes.Black);
+                    context.DrawText(format, new Point(8, (ProcessorLineStart + i) * RowHeight));
+                }
+
+                // threads
+                var line = 0;
+                var threads = snapshot.threads;
+                for (var i = 0; i < threads.Length; ++i)
+                {
+                    var thread = threads[i];
+                    var format = new FormattedText(
+                        string.Format("Thread {0}", thread.ProcessThread.Id), System.Globalization.CultureInfo.CurrentCulture, FlowDirection.LeftToRight, defaultTypeface, 12.0, Brushes.Black);
+                    context.DrawText(format, new Point(8, (ThreadLineStart + thread.Line) * RowHeight));
+                    line = Math.Max(line, thread.Line);
+                }
+                ++line;
+
+                ViewScroll.Maximum = Math.Max((ThreadLineStart + line) * RowHeight - ActualHeight, 0);
+                ViewScroll.ViewportSize = ActualHeight;
+            }
+
+            Index.MainVisual = visual;
         }
 
         private void RenderingTimer_Elapsed(object sender, ElapsedEventArgs e)
@@ -134,18 +146,9 @@ namespace ETW
         {
             UpdateGraphScrollParam();
 
-            Index.Dispatcher.Invoke(() =>
-            {
-                Index.InvalidateVisual();
-            });
-            Graph.Dispatcher.Invoke(() =>
-            {
-                Graph.InvalidateVisual();
-            });
-            TimeMeasure.Dispatcher.Invoke(() =>
-            {
-                TimeMeasure.InvalidateVisual();
-            });
+            Index_Rendering();
+            Graph_Rendering();
+            Measure_Rendering();
         }
 
         private void UpdateGraphScrollParam()

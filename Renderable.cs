@@ -8,17 +8,52 @@ using System.Windows.Automation.Peers;
 using System.Windows.Markup;
 using System.Windows.Controls;
 using System.Windows.Media;
+using System.Windows;
+using System.Windows.Input;
 
 namespace ETW
 {
-    public class Renderable : ContentControl
+    public class Renderable : Canvas
     {
-        public event Action<DrawingContext> Rendering;
-
-        protected override void OnRender(DrawingContext drawingContext)
+        class VisualHost : UIElement
         {
-            base.OnRender(drawingContext);
-            Rendering?.Invoke(drawingContext);
+            public Visual Visual { get; set; }
+
+            protected override int VisualChildrenCount
+            {
+                get { return Visual != null ? 1 : 0; }
+            }
+
+            protected override Visual GetVisualChild(int index)
+            {
+                return Visual;
+            }
+        }
+
+        VisualHost visualHost = new VisualHost();
+
+        public Renderable()
+        {
+            Children.Add(visualHost);
+        }
+
+        public Visual MainVisual
+        {
+            get
+            {
+                return Children.Count == 0 ? null : ((VisualHost)Children[0]).Visual;
+            }
+            set
+            {
+                Children.Clear();
+
+                visualHost.Visual = value;
+                Children.Add(visualHost);
+
+                // ↓これをしないとイベントが取れない
+                AddVisualChild(value);
+                AddLogicalChild(value);
+            }
         }
     }
 }
