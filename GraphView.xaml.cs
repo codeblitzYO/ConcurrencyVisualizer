@@ -1,5 +1,4 @@
 ﻿using System;
-using System.Collections.Generic;
 using System.Linq;
 using System.Text;
 using System.Threading.Tasks;
@@ -13,7 +12,6 @@ using System.Windows.Media.Imaging;
 using System.Windows.Navigation;
 using System.Windows.Shapes;
 using System.Timers;
-using System.Diagnostics;
 using System.Collections;
 
 namespace ETW
@@ -35,238 +33,6 @@ namespace ETW
                 renderingTimer.Enabled = value != null;
             }
         }
-
-        struct Span<T>
-        {
-            public T enter;
-            public T leave;
-        }
-
-        class Snapshot
-        {
-            public class Thread
-            {
-                public ProcessThread processThread;
-                public List<List<Span<Marker>>> markerSpan;
-                public List<Span<ContextSwitch>> threadSpan;
-                public int line;
-            }
-            public class Processor
-            {
-                public int index;
-                public List<Span<ContextSwitch>> span;
-            }
-
-            public Thread[] threads = new Thread[0];
-            public Processor[] processors = new Processor[0];
-            public DateTime startTime;
-            public DateTime lastTime;
-
-            public void Refresh(Sampler dataSource, DateTime startTime, DateTime lastTime)
-            {
-                this.startTime = startTime;
-                this.lastTime = lastTime;
-
-                var contextSwitchSpan = dataSource.GetContextSwitchSpan(startTime, lastTime);
-
-                processors = new Processor[Environment.ProcessorCount];
-                for (var i = 0; i < Environment.ProcessorCount; ++i)
-                {
-                    processors[i] = new Processor()
-                    {
-                        index = i,
-                        span = MakeProcessorSpan(i, contextSwitchSpan)
-                    };
-                    
-                }
-
-                int line = 0;
-                threads = new Thread[dataSource.TargetProcess.Threads.Count];
-                for (var i = 0; i < dataSource.TargetProcess.Threads.Count; ++i)
-                {
-                    var processThread = dataSource.TargetProcess.Threads[i];
-
-                    var markerSpan = new List<List<Span<Marker>>>();
-                    for (int k = 0; k < MarkerRecorder.ProvidersGuid.Length; ++k)
-                    {
-                        var markers = dataSource.GetMarkerSpan(processThread.Id, k, startTime, lastTime);
-                        if (markers != null && markers.Count > 0)
-                        {
-                            markerSpan.Add(MakeMarkerSpan(markers));
-                        }
-                    }
-
-                    threads[i] = new Thread()
-                    {
-                        processThread = processThread,
-                        markerSpan = markerSpan,
-                        threadSpan = MakeThreadSpan(processThread.Id, contextSwitchSpan),
-                        line = line
-                    };
-                    line += markerSpan.Count + 1;
-                }
-            }
-
-            private List<Span<ContextSwitch>> MakeProcessorSpan(int processorId, List<ContextSwitch> contextSwitchSpan)
-            {
-                var spans = new List<Span<ContextSwitch>>();
-                var enterCs = new ContextSwitch();
-
-                foreach (var cs in contextSwitchSpan)
-                {
-                    if (cs.processor != processorId)
-                    {
-                        continue;
-                    }
-
-                    switch (cs.action)
-                    {
-                        case ContextSwitch.ActionType.Enter:
-                            enterCs = cs;
-                            break;
-                        case ContextSwitch.ActionType.Leave:
-                            if (enterCs.action == ContextSwitch.ActionType.Enter)
-                            {
-                                spans.Add(new Span<ContextSwitch>() { enter = enterCs, leave = cs });
-                                enterCs.action = ContextSwitch.ActionType.None;
-                            }
-                            break;
-                        default:
-                            break;
-                    }
-                }
-
-                return spans;
-            }
-
-            private List<Span<Marker>> MakeMarkerSpan(List<Marker> markers)
-            {
-                var spans = new List<Span<Marker>>();
-                for (var i = 0; i < markers.Count; ++i)
-                {
-                    var marker = markers[i];
-
-                    switch (marker.e)
-                    {
-                        case Marker.Event.EnterSpan:
-                            for (var j = i + 1; j < markers.Count; ++j)
-                            {
-                                var marker2 = markers[j];
-                                if (marker2.e == Marker.Event.LeaveSpan && marker.id == marker2.id)
-                                {
-                                    spans.Add(new Span<Marker>() { enter=marker, leave=marker2 });
-                                }
-                            }
-                            break;
-                        case Marker.Event.Flag:
-                        case Marker.Event.Message:
-                            spans.Add(new Span<Marker>() { enter = marker, leave = marker });
-                            break;
-                        default:
-                            break;
-                    }
-                }
-
-                return spans;
-            }
-
-            private List<Span<ContextSwitch>> MakeThreadSpan(int threadId, List<ContextSwitch> contextSwitches)
-            {
-                var spans = new List<Span<ContextSwitch>>();
-                ContextSwitch enterCs = new ContextSwitch();
-
-                foreach (var cs in contextSwitches)
-                {
-                    if (cs.oldThread == threadId)
-                    {
-                        if (enterCs.newThread == threadId)
-                        {
-                            spans.Add(new Span<ContextSwitch>() { enter = enterCs, leave = cs });
-                            enterCs.newThread = 0;
-                        }
-                    }
-                    if (cs.newThread == threadId)
-                    {
-                        enterCs = cs;
-                    }
-                }
-
-                return spans;
-            }
-        }
-
-        class SpanGather
-        {
-            public Snapshot.Thread Thread { get; private set; }
-            public List<Span<Marker>> Markers { get; private set; }
-            public List<Span<ContextSwitch>> ThreadUsing { get; private set; }
-
-            public DateTime StartTime { get; private set; }
-            public DateTime LastTime { get; private set; }
-            public TimeSpan Duration { get { return LastTime - StartTime; } }
-
-            SpanGather()
-            {
-            }
-
-            static public SpanGather Gather(Snapshot snapshot, int line, DateTime startTime, DateTime lastTime)
-            {
-                if (snapshot.threads.Length == 0)
-                {
-                    return null;
-                }
-
-                Snapshot.Thread thread = snapshot.threads[0];
-                foreach (var i in snapshot.threads)
-                {
-                    if (i.line > line) break;
-                    thread = i;
-                }
-
-                var spanData = new SpanGather();
-                spanData.Thread = thread;
-                spanData.Markers = new List<Span<Marker>>();
-                spanData.ThreadUsing = new List<Span<ContextSwitch>>();
-
-                var providerIndex = line - thread.line - 1;
-
-                if (providerIndex >= 0 && providerIndex < thread.markerSpan.Count)
-                {
-                    spanData.Markers = spanData.GatherSpan(thread.markerSpan[providerIndex], startTime, lastTime);
-                }
-                else
-                {
-                    spanData.ThreadUsing = spanData.GatherSpan(thread.threadSpan, startTime, lastTime);
-                }
-
-                return spanData;
-            }
-
-            List<Span<T>> GatherSpan<T>(List<Span<T>> spans, DateTime startTime, DateTime lastTime) where T : IRecordData
-            {
-                var result = new List<Span<T>>();
-                var duration = lastTime - startTime;
-
-                foreach (var s in spans)
-                {
-                    var spanDuration = s.leave.Timestamp - s.enter.Timestamp;
-                    //var totalDuration = spanDuration + duration;
-
-                    var width = Math.Max(lastTime.Ticks, s.leave.Timestamp.Ticks) - Math.Min(startTime.Ticks, s.enter.Timestamp.Ticks);
-                    var allowed = (spanDuration + duration).Ticks;
-
-                    if (width < allowed)
-                    {
-                        result.Add(s);
-
-                        StartTime = s.enter.Timestamp;
-                        LastTime = s.leave.Timestamp;
-                    }
-                }
-
-                return result;
-            }
-        };
 
         private Timer renderingTimer;
         private int processorCount;
@@ -339,9 +105,9 @@ namespace ETW
             {
                 var thread = threads[i];
                 var format = new FormattedText(
-                    string.Format("Thread {0}", thread.processThread.Id), System.Globalization.CultureInfo.CurrentCulture, FlowDirection.LeftToRight, defaultTypeface, 12.0, Brushes.Black);
-                drawingContext.DrawText(format, new Point(8, (ThreadLineStart + thread.line) * RowHeight));
-                line = Math.Max(line, thread.line);
+                    string.Format("Thread {0}", thread.ProcessThread.Id), System.Globalization.CultureInfo.CurrentCulture, FlowDirection.LeftToRight, defaultTypeface, 12.0, Brushes.Black);
+                drawingContext.DrawText(format, new Point(8, (ThreadLineStart + thread.Line) * RowHeight));
+                line = Math.Max(line, thread.Line);
             }
             ++line;
 
@@ -411,9 +177,9 @@ namespace ETW
         {
             foreach (var processor in snapshot.processors)
             {
-                foreach(var span in processor.span)
+                foreach(var span in processor.Spans)
                 {
-                    DrawSpan(drawingContext, brush, ProcessorLineStart + processor.index, snapshot.startTime, span.enter.Timestamp, span.leave.Timestamp);
+                    DrawSpan(drawingContext, brush, ProcessorLineStart + processor.Index, snapshot.startTime, span.enter.Timestamp, span.leave.Timestamp);
                 }
             }
         }
@@ -422,18 +188,18 @@ namespace ETW
         {
             foreach (var thread in snapshot.threads)
             {
-                foreach (var span in thread.threadSpan)
+                foreach (var span in thread.ThreadSpan)
                 {
-                    DrawSpan(drawingContext, brush, ThreadLineStart + thread.line, snapshot.startTime, span.enter.Timestamp, span.leave.Timestamp);
+                    DrawSpan(drawingContext, brush, ThreadLineStart + thread.Line, snapshot.startTime, span.enter.Timestamp, span.leave.Timestamp);
                 }
 
-                int lineOffset = ThreadLineStart + thread.line;
-                foreach (var markerSpan in thread.markerSpan)
+                int lineOffset = ThreadLineStart + thread.Line;
+                foreach (var markerSpan in thread.MarkerSpan)
                 {
                     ++lineOffset;
                     foreach (var span in markerSpan)
                     {
-                        DrawSpan(drawingContext, brush, lineOffset, snapshot.startTime, span.enter.Timestamp, span.leave.Timestamp, span.enter.name);
+                        DrawSpan(drawingContext, Brushes.Azure, lineOffset, snapshot.startTime, span.enter.Timestamp, span.leave.Timestamp, span.enter.name);
                     }
                 }
             }
@@ -494,7 +260,7 @@ namespace ETW
             if (gather != null)
             {
                 string content = "";
-                content += "ID: " + gather.Thread.processThread.Id + "\n";
+                content += "ID: " + gather.Thread.ProcessThread.Id + "\n";
                 content += "Duration: " + gather.Duration.TotalMilliseconds + "ms\n";
                 content += "Start Time: " + gather.StartTime + "\n";
                 content += "Last Time: " + gather.LastTime + "\n";

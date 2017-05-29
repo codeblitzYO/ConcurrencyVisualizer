@@ -76,12 +76,14 @@
       <Generator>MSBuild:Compile</Generator>
       <SubType>Designer</SubType>
     </ApplicationDefinition>
+    <Compile Include="GraphView.SpanGather.cs" />
     <Compile Include="Renderable.cs" />
     <Compile Include="ContextSwitchRecorder.cs" />
     <Compile Include="EventRecorder.cs" />
     <Compile Include="MarkerRecorder.cs" />
     <Compile Include="RawData.cs" />
     <Compile Include="Sampler.cs" />
+    <Compile Include="GraphView.Snapshot.cs" />
     <Page Include="GraphView.xaml">
       <SubType>Designer</SubType>
       <Generator>MSBuild:Compile</Generator>
