@@ -41,13 +41,12 @@ namespace ETW
         {
             get
             {
-                return Children.Count == 0 ? null : ((VisualHost)Children[0]).Visual;
+                return visualHost.Visual;
             }
             set
             {
-                Children.Clear();
-
                 visualHost.Visual = value;
+                Children.Remove(visualHost);
                 Children.Add(visualHost);
 
                 // ↓これをしないとイベントが取れない

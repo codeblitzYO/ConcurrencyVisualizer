@@ -163,6 +163,8 @@ namespace ETW
             var span = snapshot.lastTime - snapshot.startTime;
             var ticks = span.Ticks;
 
+            drawingContext.DrawRectangle(Brushes.Transparent, null, new Rect(0, 0, TickToPixel(span.Ticks), TimeMeasure.Height));
+
             var pen = new Pen(brush, 1);
 
             long step = TimeSpan.TicksPerMillisecond;
@@ -296,6 +298,34 @@ namespace ETW
         private long PixelToTick(double pixels)
         {
             return (long)(pixels * timeScale);
+        }
+
+        private void TimeMeasure_MouseDown(object sender, MouseButtonEventArgs e)
+        {
+            var position = e.GetPosition(TimeMeasure);
+            Canvas.SetLeft(TimeMeasureSelect, position.X);
+            TimeMeasureSelect.Width = 0;
+        }
+
+        private void TimeMeasure_MouseUp(object sender, MouseButtonEventArgs e)
+        {
+            var left = Canvas.GetLeft(TimeMeasureSelect);
+            var startTime = snapshot.startTime + TimeSpan.FromTicks(PixelToTick(left));
+            var lastTime = startTime + TimeSpan.FromTicks(PixelToTick(TimeMeasureSelect.Width));
+
+            var duration = lastTime - startTime;
+
+            //TimeScale = duration.Ticks/Graph.ActualWidth;
+
+            TimeMeasureSelect.Width = 0;
+        }
+
+        private void TimeMeasure_MouseMove(object sender, MouseEventArgs e)
+        {
+            var position = e.GetPosition(TimeMeasure);
+
+            var left = Canvas.GetLeft(TimeMeasureSelect);
+            TimeMeasureSelect.Width = Math.Max(position.X - left, 0);
         }
     }
 }

@@ -19,10 +19,12 @@
         </Canvas>
         <GridSplitter Grid.Column="1" HorizontalAlignment="Center" Width="4" Margin="0,0,0,0"/>
         <Grid x:Name="GraphContainer" ClipToBounds="True" Grid.Column="2" SizeChanged="GraphContainer_SizeChanged" >
-            <local:Renderable x:Name="TimeMeasure" Height="23" VerticalAlignment="Top" Background="{DynamicResource {x:Static SystemColors.HighlightTextBrushKey}}"/>
-			<local:Renderable x:Name="Graph" Margin="0,0,0,0" MouseEnter="Graph_MouseEnter" MouseLeave="Graph_MouseLeave" MouseMove="Graph_MouseMove" />
-			<ScrollBar x:Name="GraphScroll" Height="Auto" Orientation="Horizontal" VerticalAlignment="Bottom" VerticalContentAlignment="Bottom" ValueChanged="GraphScroll_ValueChanged" SmallChange="1"/>
-            <Label x:Name="Description" Content="Label" Margin="0" IsHitTestVisible="False" Background="{DynamicResource {x:Static SystemColors.InfoBrushKey}}" BorderBrush="{DynamicResource {x:Static SystemColors.InactiveCaptionBrushKey}}" BorderThickness="1" RenderTransformOrigin="0,0" HorizontalAlignment="Left" VerticalAlignment="Top"/>
+            <local:Renderable x:Name="TimeMeasure" Height="23" VerticalAlignment="Top" MouseDown="TimeMeasure_MouseDown" MouseUp="TimeMeasure_MouseUp" MouseMove="TimeMeasure_MouseMove">
+                <Rectangle x:Name="TimeMeasureSelect" Fill="#330078D7" Height="23" Width="22" Stroke="#CC0078D7" RenderTransformOrigin="0,0.5" IsHitTestVisible="False" HorizontalAlignment="Left" VerticalAlignment="Top"/>
+            </local:Renderable>
+            <local:Renderable x:Name="Graph" Margin="0,0,0,0" MouseEnter="Graph_MouseEnter" MouseLeave="Graph_MouseLeave" MouseMove="Graph_MouseMove" />
+            <ScrollBar x:Name="GraphScroll" Height="Auto" Orientation="Horizontal" VerticalAlignment="Bottom" VerticalContentAlignment="Bottom" ValueChanged="GraphScroll_ValueChanged" SmallChange="1"/>
+            <Label x:Name="Description" Content="Label" Margin="109,247,0,0" IsHitTestVisible="False" Background="{DynamicResource {x:Static SystemColors.InfoBrushKey}}" BorderBrush="{DynamicResource {x:Static SystemColors.InactiveCaptionBrushKey}}" BorderThickness="1" RenderTransformOrigin="0,0" HorizontalAlignment="Left" VerticalAlignment="Top"/>
         </Grid>
         <ScrollBar x:Name="ViewScroll" Grid.Column="3" HorizontalAlignment="Left" Margin="0,0,0,0" VerticalContentAlignment="Stretch" Width="Auto" ValueChanged="ViewScroll_ValueChanged" SmallChange="1"/>
     </Grid>

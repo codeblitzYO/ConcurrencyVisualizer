@@ -16,13 +16,18 @@ using System.Timers;
 
 namespace ETW
 {
+    class ApplicationData
+    {
+        public float TimeScale { set; get; }
+    }
+
     /// <summary>
     /// MainWindow.xaml の相互作用ロジック
     /// </summary>
     public partial class MainWindow : Window
     {
         private Sampler sampler;
-        
+
 
         public MainWindow()
         {
@@ -45,7 +50,7 @@ namespace ETW
 
         private void Start_Click(object sender, RoutedEventArgs e)
         {
-            
+
         }
 
         private void Pause_Click(object sender, RoutedEventArgs e)
