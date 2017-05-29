@@ -36,6 +36,7 @@ namespace ETW
         private int processorCount;
         private Typeface defaultTypeface = new Typeface(System.Drawing.SystemFonts.CaptionFont.Name);
         private Snapshot snapshot = new Snapshot();
+        private Pen spanFramePen = new Pen(Brushes.LightGray, 0.5f);
 
         private int ProcessorLineStart { get { return 3; } }
         private int ThreadLineStart { get { return ProcessorLineStart + processorCount + 1; } }
@@ -46,7 +47,7 @@ namespace ETW
             get { return timeScale; }
             set
             {
-                timeScale = Math.Max(Math.Min(value, 10000), 10);
+                timeScale = Math.Max(Math.Min(value, 10000), 1);
                 RefreshView();
             }
         }
@@ -134,8 +135,8 @@ namespace ETW
 
         public void Render()
         {
-            var lastTime = DateTime.Now - TimeSpan.FromSeconds(5);
-            var startTime = lastTime - TimeSpan.FromSeconds(1);
+            var lastTime = DateTime.Now - TimeSpan.FromSeconds(2);
+            var startTime = lastTime - TimeSpan.FromSeconds(0.2f);
 
             snapshot.Refresh(dataSource, startTime, lastTime);
 
@@ -202,7 +203,7 @@ namespace ETW
                     ++lineOffset;
                     foreach (var span in markerSpan)
                     {
-                        DrawSpan(drawingContext, Brushes.Azure, lineOffset, snapshot.startTime, span.enter.Timestamp, span.leave.Timestamp, span.enter.name);
+                        DrawSpan(drawingContext, Brushes.Azure, lineOffset, snapshot.startTime, span.enter.Timestamp, span.leave.Timestamp, span.enter.Name);
                     }
                 }
             }
@@ -215,13 +216,14 @@ namespace ETW
             var y = line * RowHeight;
             var h = RowHeight - 2;
 
-            drawingContext.DrawRectangle(brush, null, new Rect(x, y, w, h));
+            var pen = w > 16 ? spanFramePen : null;
+            drawingContext.DrawRectangle(brush, pen, new Rect(x, y, w, h));
             if (!string.IsNullOrEmpty(text) && w > 16)
             {
                 var format = new FormattedText(
                     text, System.Globalization.CultureInfo.CurrentCulture, FlowDirection.LeftToRight, defaultTypeface, 12, Brushes.Black);
                 format.MaxTextWidth = w;
-                drawingContext.DrawText(format, new Point(x, y));
+                drawingContext.DrawText(format, new Point(x + 2, y));
             }
         }
 
@@ -248,6 +250,16 @@ namespace ETW
 
         private void Graph_MouseEnter(object sender, MouseEventArgs e)
         {
+            
+        }
+
+        private void Graph_MouseLeave(object sender, MouseEventArgs e)
+        {
+            Description.Visibility = Visibility.Hidden;
+        }
+
+        private void Graph_MouseMove(object sender, MouseEventArgs e)
+        {
             var position = e.GetPosition(Graph);
 
             var line = (int)Math.Floor((position.Y - ThreadLineStart * RowHeight) / RowHeight);
@@ -264,6 +276,7 @@ namespace ETW
             {
                 string content = "";
                 content += "ID: " + gather.Thread.ProcessThread.Id + "\n";
+                if(gather.Name != null) content += "Name: " + gather.Name + "\n";
                 content += "Duration: " + gather.Duration.TotalMilliseconds + "ms\n";
                 content += "Start Time: " + gather.StartTime + "\n";
                 content += "Last Time: " + gather.LastTime + "\n";
@@ -278,11 +291,6 @@ namespace ETW
 
             Description.Visibility = Visibility.Visible;
             Description.Margin = new Thickness(position.X - GraphScroll.Value, position.Y - ViewScroll.Value, 0, 0);
-        }
-
-        private void Graph_MouseLeave(object sender, MouseEventArgs e)
-        {
-            Description.Visibility = Visibility.Hidden;
         }
 
         private double TickToPixel(long ticks)

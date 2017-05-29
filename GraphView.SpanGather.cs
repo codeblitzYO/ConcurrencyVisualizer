@@ -16,6 +16,8 @@ namespace ETW
             public DateTime LastTime { get; private set; }
             public TimeSpan Duration { get { return LastTime - StartTime; } }
 
+            public string Name { get; private set; }
+
             SpanGather()
             {
             }
@@ -40,7 +42,6 @@ namespace ETW
                 spanData.ThreadUsing = new List<Span<ContextSwitch>>();
 
                 var providerIndex = line - thread.Line - 1;
-
                 if (providerIndex >= 0 && providerIndex < thread.MarkerSpan.Count)
                 {
                     spanData.Markers = spanData.GatherSpan(thread.MarkerSpan[providerIndex], startTime, lastTime);
@@ -50,6 +51,10 @@ namespace ETW
                     spanData.ThreadUsing = spanData.GatherSpan(thread.ThreadSpan, startTime, lastTime);
                 }
 
+                if (spanData.Markers.Count == 0 && spanData.ThreadUsing.Count == 0)
+                {
+                    return null;
+                }
                 return spanData;
             }
 
@@ -72,6 +77,7 @@ namespace ETW
 
                         StartTime = s.enter.Timestamp;
                         LastTime = s.leave.Timestamp;
+                        Name = s.enter.Name;
                     }
                 }
 

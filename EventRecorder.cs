@@ -14,6 +14,7 @@ namespace ETW
     public interface IRecordData
     {
         DateTime Timestamp { get; set; }
+        string Name { get; set; }
     }
 
     public class Record<T> where T : IRecordData

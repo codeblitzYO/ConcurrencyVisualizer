@@ -23,15 +23,10 @@ namespace ETW
 
         public Event e;
         public int id;
-        public string name;
         public int thread;
-        public DateTime timestamp;
 
-        public DateTime Timestamp
-        {
-            get { return timestamp; }
-            set { timestamp = value; }
-        }
+        public DateTime Timestamp { set; get; }
+        public string Name { set; get; }
     }
 
     class MarkerRecorder : EventRecorder
@@ -151,9 +146,9 @@ namespace ETW
                 {
                     e = e,
                     id = span,
-                    name = name,
+                    Name = name,
                     thread = data.ThreadID,
-                    timestamp = data.TimeStamp
+                    Timestamp = data.TimeStamp
                 });
             }
         }

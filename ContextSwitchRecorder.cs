@@ -22,25 +22,17 @@ namespace ETW
         public int processor;
         public int newThread;
         public int oldThread;
-        public DateTime timestamp;
 
-        public DateTime Timestamp
-        {
-            get { return timestamp; }
-            set { timestamp = value; }
-        }
+        public DateTime Timestamp { set; get; }
+        public string Name { set { } get { return null; } }
     }
     public struct Stackwalk : IRecordData
     {
         public int thread;
         public ulong[] pc;
-        public DateTime timestamp;
 
-        public DateTime Timestamp
-        {
-            get { return timestamp; }
-            set { timestamp = value; }
-        }
+        public DateTime Timestamp { set; get; }
+        public string Name { set { } get { return null; } }
     }
 
     class ContextSwitchRecorder : EventRecorder
@@ -82,7 +74,7 @@ namespace ETW
             {
                 thread = data.ThreadID,
                 pc = pc,
-                timestamp = data.TimeStamp
+                Timestamp = data.TimeStamp
             });
         }
 
@@ -110,7 +102,7 @@ namespace ETW
                 processor = data.ProcessorNumber,
                 oldThread = (data.OldProcessID == TargetProcess.Id) ? data.OldThreadID : 0,
                 newThread = (data.NewProcessID == TargetProcess.Id) ? data.NewThreadID : 0,
-                timestamp = data.TimeStamp
+                Timestamp = data.TimeStamp
             });
         }
 
