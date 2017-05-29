@@ -281,11 +281,6 @@ namespace ETW
                 content += "Start Time: " + gather.StartTime + "\n";
                 content += "Last Time: " + gather.LastTime + "\n";
 
-                var formattedText = new FormattedText(
-                    content, System.Globalization.CultureInfo.CurrentCulture, FlowDirection.LeftToRight, defaultTypeface, Description.FontSize, Brushes.Black);
-
-                Description.Width = formattedText.Width;
-                Description.Height = formattedText.Height;
                 Description.Content = content;
             }
 
