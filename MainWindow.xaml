@@ -9,11 +9,10 @@
 
 	<Grid Margin="0,0,0,0">
 		<Grid HorizontalAlignment="Left" Height="32" VerticalAlignment="Top">
-			<Button x:Name="Start" Content="Start" HorizontalAlignment="Left" Margin="232,0,-136,0" VerticalAlignment="Top" Width="32" Height="32" Click="Start_Click"/>
+			<Button x:Name="Start" Content="Start" HorizontalAlignment="Left" Margin="232,0,-136,0" Width="32" Click="Start_Click" MouseLeave="Start_MouseLeave"/>
 			<Button x:Name="Pause" Content="Pause" HorizontalAlignment="Left" Margin="264,0,-168,0" VerticalAlignment="Bottom" Width="32" Height="32" Click="Pause_Click"/>
-			<Button Content="Button" HorizontalAlignment="Left" Margin="296,0,-200,0" VerticalAlignment="Top" Width="32" Height="32"/>
-			<Button Content="Button" HorizontalAlignment="Left" Margin="328,0,-232,0" VerticalAlignment="Top" Width="32" Height="32" Click="Button_Click"/>
-			<TextBox x:Name="ProcessName" HorizontalAlignment="Left"  TextWrapping="Wrap" Text="TextBox" VerticalAlignment="Top" Width="177" Margin="5,6,-54,0"/>
+			<Button x:Name="Refresh" Content="Refresh" HorizontalAlignment="Left" Margin="328,0,-232,0" VerticalAlignment="Top" Width="32" Height="32" Click="Refresh_Click"/>
+			<TextBox x:Name="ProcessName" HorizontalAlignment="Left"  TextWrapping="Wrap" VerticalAlignment="Top" Width="177" Margin="5,6,-54,0"/>
 		</Grid>
 		<local:GraphView x:Name="Graph" Margin="4,36,4,4"/>
 		<Slider x:Name="Scale" HorizontalAlignment="Right" Margin="0,10,32,0" VerticalAlignment="Top" Width="219" Height="21" Minimum="1" Value="200" ValueChanged="Scale_ValueChanged" Maximum="400"/>

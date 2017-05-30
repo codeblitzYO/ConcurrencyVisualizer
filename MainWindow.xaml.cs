@@ -34,14 +34,9 @@ namespace ETW
             InitializeComponent();
 
 			Graph.ChangedTimeScale += Graph_ChangedTimeScale;
-
-            sampler = new Sampler();
-            sampler.Start("CV");
-
-            Graph.DataSource = sampler;
-			Scale.AddHandler(MouseLeftButtonDownEvent, new MouseButtonEventHandler(Scale_MouseDown), true);
-			Scale.AddHandler(MouseLeftButtonUpEvent, new MouseButtonEventHandler(Scale_MouseUp), true);
-		}
+            Scale.AddHandler(MouseLeftButtonDownEvent, new MouseButtonEventHandler(Scale_MouseDown), true);
+            Scale.AddHandler(MouseLeftButtonUpEvent, new MouseButtonEventHandler(Scale_MouseUp), true);
+        }
 
 		private void Graph_ChangedTimeScale(object sender, double e)
 		{
@@ -59,17 +54,40 @@ namespace ETW
 
         private void Start_Click(object sender, RoutedEventArgs e)
         {
+            StopSampling();
 
+            var newSampler = new Sampler();
+            if (newSampler.Start(ProcessName.Text))
+            {
+                Graph.DataSource = newSampler;
+                sampler = newSampler;
+            }
+            else
+            {
+                Start.ToolTip = new ToolTip() { Content = "Process not found.", IsOpen = true };
+            }
         }
 
         private void Pause_Click(object sender, RoutedEventArgs e)
         {
-
+            StopSampling();
         }
 
-        private void Button_Click(object sender, RoutedEventArgs e)
+        private void StopSampling()
         {
-            Graph.Render();
+            if (sampler != null)
+            {
+                sampler.Stop();
+                sampler = null;
+            }
+        }
+
+        private void Refresh_Click(object sender, RoutedEventArgs e)
+        {
+            if(sampler != null)
+            {
+                Graph.Render();
+            }
         }
 
         private void Scale_ValueChanged(object sender, RoutedPropertyChangedEventArgs<double> e)
@@ -87,5 +105,14 @@ namespace ETW
 			Graph.SimpleRendering = false;
 			Graph.TimeScale = Graph.TimeScale;
 		}
-	}
+
+        private void Start_MouseLeave(object sender, MouseEventArgs e)
+        {
+            if (Start.ToolTip != null)
+            {
+                ((ToolTip)Start.ToolTip).IsOpen = false;
+            }
+            Start.ToolTip = null;
+        }
+    }
 }
