@@ -11,321 +11,333 @@ using System.Windows.Media;
 using System.Windows.Media.Imaging;
 using System.Windows.Navigation;
 using System.Windows.Shapes;
+using System.Windows.Threading;
 using System.Timers;
 using System.Collections;
+using System.Threading;
 
 namespace ETW
 {
-    /// <summary>
-    /// GraphView.xaml の相互作用ロジック
-    /// </summary>
-    public partial class GraphView : UserControl
-    {
-        const int RowHeight = 16;
+	/// <summary>
+	/// GraphView.xaml の相互作用ロジック
+	/// </summary>
+	public partial class GraphView : UserControl
+	{
+		const int RowHeight = 16;
 
-        private Sampler dataSource;
-        public Sampler DataSource
-        {
-            get { return dataSource; }
-            set
-            {
-                dataSource = value;
-            }
-        }
+		private Sampler dataSource;
+		public Sampler DataSource
+		{
+			get { return dataSource; }
+			set
+			{
+				dataSource = value;
+			}
+		}
 
-        private int processorCount;
-        private Typeface defaultTypeface = new Typeface(System.Drawing.SystemFonts.CaptionFont.Name);
-        private Snapshot snapshot = new Snapshot();
-        private Pen spanFramePen = new Pen(Brushes.LightGray, 0.5f);
+		private int processorCount;
+		private Typeface defaultTypeface = new Typeface(System.Drawing.SystemFonts.CaptionFont.Name);
+		private Snapshot snapshot = new Snapshot();
+		private Pen spanFramePen = new Pen(Brushes.LightGray, 0.5f);
+		private bool measureDragging = false;
 
-        private int ProcessorLineStart { get { return 3; } }
-        private int ThreadLineStart { get { return ProcessorLineStart + processorCount + 1; } }
+		private int ProcessorLineStart { get { return 3; } }
+		private int ThreadLineStart { get { return ProcessorLineStart + processorCount + 1; } }
 
-        private double timeScale = 200;
-        public double TimeScale
-        {
-            get { return timeScale; }
-            set
-            {
-                timeScale = Math.Max(Math.Min(value, 10000), 1);
-                RefreshView();
-            }
-        }
+		public event Action<object, double> ChangedTimeScale;
 
-        public GraphView()
-        {
-            InitializeComponent();
+		private double timeScale = 200;
+		public double TimeScale
+		{
+			get { return timeScale; }
+			set
+			{
+				timeScale = Math.Max(Math.Min(value, 10000), 1);
+				RefreshView();
+			}
+		}
 
-            var transformGroup = new TransformGroup();
-            Graph.RenderTransform = transformGroup;
-            transformGroup.Children.Add(new TranslateTransform());
-            transformGroup.Children.Add(new ScaleTransform());
+		public GraphView()
+		{
+			InitializeComponent();
 
-            Index.RenderTransform = new TranslateTransform();
+			var transformGroup = new TransformGroup();
+			Graph.RenderTransform = transformGroup;
+			transformGroup.Children.Add(new TranslateTransform());
+			transformGroup.Children.Add(new ScaleTransform());
+			Index.RenderTransform = new TranslateTransform();
+			TimeMeasure.RenderTransform = new TranslateTransform();
 
-            TimeMeasure.RenderTransform = new TranslateTransform();
+			processorCount = Environment.ProcessorCount;
+		}
 
-            processorCount = Environment.ProcessorCount;
-        }
+		private void Measure_Rendering()
+		{
+			var visual = new DrawingVisual();
 
-        private void Measure_Rendering()
-        {
-            var visual = new DrawingVisual();
+			using (var context = visual.RenderOpen())
+			{
+				DrawMeasure(context, Brushes.Black);
+			}
 
-            using (var context = visual.RenderOpen())
-            {
-                DrawMeasure(context, Brushes.Black);
-            }
+			TimeMeasure.MainVisual = visual;
+		}
 
-            TimeMeasure.MainVisual = visual;
-        }
+		private void Graph_Rendering()
+		{
+			var visual = new DrawingVisual();
+			using (var context = visual.RenderOpen())
+			{
+				DrawProcessorUsage(context, Brushes.Blue);
+				DrawThreadUsage(context, Brushes.Red);
+			}
+			Graph.MainVisual = visual;
+		}
 
-        private void Graph_Rendering()
-        {
-            var visual = new DrawingVisual();
+		private void Index_Rendering()
+		{
+			var visual = new DrawingVisual();
 
-            using (var context = visual.RenderOpen())
-            {
-                DrawProcessorUsage(context, Brushes.Blue);
-                DrawThreadUsage(context, Brushes.Red);
-            }
+			using (var context = visual.RenderOpen())
+			{
 
-            Graph.MainVisual = visual;
-        }
+				// core
+				for (var i = 0; i < processorCount; ++i)
+				{
+					var format = new FormattedText(
+						string.Format("Core{0}", i), System.Globalization.CultureInfo.CurrentCulture, FlowDirection.LeftToRight, defaultTypeface, 12.0, Brushes.Black);
+					context.DrawText(format, new Point(8, (ProcessorLineStart + i) * RowHeight));
+				}
 
-        private void Index_Rendering()
-        {
-            var visual = new DrawingVisual();
+				// threads
+				var line = 0;
+				var threads = snapshot.threads;
+				for (var i = 0; i < threads.Length; ++i)
+				{
+					var thread = threads[i];
+					var format = new FormattedText(
+						string.Format("Thread {0}", thread.ProcessThread.Id), System.Globalization.CultureInfo.CurrentCulture, FlowDirection.LeftToRight, defaultTypeface, 12.0, Brushes.Black);
+					context.DrawText(format, new Point(8, (ThreadLineStart + thread.Line) * RowHeight));
+					line = Math.Max(line, thread.Line);
+				}
+				++line;
 
-            using (var context = visual.RenderOpen())
-            {
+				ViewScroll.Maximum = Math.Max((ThreadLineStart + line) * RowHeight - ActualHeight, 0);
+				ViewScroll.ViewportSize = ActualHeight;
+			}
 
-                // core
-                for (var i = 0; i < processorCount; ++i)
-                {
-                    var format = new FormattedText(
-                        string.Format("Core{0}", i), System.Globalization.CultureInfo.CurrentCulture, FlowDirection.LeftToRight, defaultTypeface, 12.0, Brushes.Black);
-                    context.DrawText(format, new Point(8, (ProcessorLineStart + i) * RowHeight));
-                }
+			Index.MainVisual = visual;
+		}
 
-                // threads
-                var line = 0;
-                var threads = snapshot.threads;
-                for (var i = 0; i < threads.Length; ++i)
-                {
-                    var thread = threads[i];
-                    var format = new FormattedText(
-                        string.Format("Thread {0}", thread.ProcessThread.Id), System.Globalization.CultureInfo.CurrentCulture, FlowDirection.LeftToRight, defaultTypeface, 12.0, Brushes.Black);
-                    context.DrawText(format, new Point(8, (ThreadLineStart + thread.Line) * RowHeight));
-                    line = Math.Max(line, thread.Line);
-                }
-                ++line;
+		private void RenderingTimer_Elapsed(object sender, ElapsedEventArgs e)
+		{
+			Render();
+		}
 
-                ViewScroll.Maximum = Math.Max((ThreadLineStart + line) * RowHeight - ActualHeight, 0);
-                ViewScroll.ViewportSize = ActualHeight;
-            }
+		public void Render()
+		{
+			var lastTime = DateTime.Now - TimeSpan.FromSeconds(2);
+			var startTime = lastTime - TimeSpan.FromSeconds(0.2f);
 
-            Index.MainVisual = visual;
-        }
+			snapshot.Refresh(dataSource, startTime, lastTime);
 
-        private void RenderingTimer_Elapsed(object sender, ElapsedEventArgs e)
-        {
-            Render();
-        }
+			RefreshView();
+		}
 
-        public void Render()
-        {
-            var lastTime = DateTime.Now - TimeSpan.FromSeconds(2);
-            var startTime = lastTime - TimeSpan.FromSeconds(0.2f);
+		void RefreshView()
+		{
+			UpdateGraphScrollParam();
 
-            snapshot.Refresh(dataSource, startTime, lastTime);
+			Index_Rendering();
+			Graph_Rendering();
+			Measure_Rendering();
+		}
 
-            RefreshView();
-        }
+		private void UpdateGraphScrollParam()
+		{
+			GraphScroll.Maximum = TickToPixel((snapshot.lastTime - snapshot.startTime).Ticks) - Graph.ActualWidth;
+			GraphScroll.ViewportSize = Graph.ActualWidth;
+		}
 
-        void RefreshView()
-        {
-            UpdateGraphScrollParam();
+		private void DrawMeasure(DrawingContext drawingContext, Brush brush)
+		{
+			var span = snapshot.lastTime - snapshot.startTime;
+			var ticks = span.Ticks;
 
-            Index_Rendering();
-            Graph_Rendering();
-            Measure_Rendering();
-        }
+			drawingContext.DrawRectangle(Brushes.Transparent, null, new Rect(0, 0, TickToPixel(span.Ticks), TimeMeasure.Height));
 
-        private void UpdateGraphScrollParam()
-        {
-            GraphScroll.Maximum = TickToPixel((snapshot.lastTime - snapshot.startTime).Ticks) - Graph.ActualWidth;
-            GraphScroll.ViewportSize = Graph.ActualWidth;
-        }
+			var pen = new Pen(brush, 1);
 
-        private void DrawMeasure(DrawingContext drawingContext, Brush brush)
-        {
-            var span = snapshot.lastTime - snapshot.startTime;
-            var ticks = span.Ticks;
+			long step = TimeSpan.TicksPerMillisecond;
+			long progress = 0;
+			while (progress <= ticks)
+			{
+				var x = TickToPixel(progress);
+				drawingContext.DrawLine(pen, new Point(x, 0), new Point(x, 8));
 
-            drawingContext.DrawRectangle(Brushes.Transparent, null, new Rect(0, 0, TickToPixel(span.Ticks), TimeMeasure.Height));
+				progress += step;
+			}
+			//
+		}
 
-            var pen = new Pen(brush, 1);
+		private void DrawProcessorUsage(DrawingContext drawingContext, Brush brush)
+		{
+			foreach (var processor in snapshot.processors)
+			{
+				foreach (var span in processor.Spans)
+				{
+					DrawSpan(drawingContext, brush, ProcessorLineStart + processor.Index, snapshot.startTime, span.enter.Timestamp, span.leave.Timestamp);
+				}
+			}
+		}
 
-            long step = TimeSpan.TicksPerMillisecond;
-            long progress = 0;
-            while(progress <= ticks)
-            {
-                var x = TickToPixel(progress);
-                drawingContext.DrawLine(pen, new Point(x, 0), new Point(x, 8));
+		private void DrawThreadUsage(DrawingContext drawingContext, Brush brush)
+		{
+			foreach (var thread in snapshot.threads)
+			{
+				foreach (var span in thread.ThreadSpan)
+				{
+					DrawSpan(drawingContext, brush, ThreadLineStart + thread.Line, snapshot.startTime, span.enter.Timestamp, span.leave.Timestamp);
+				}
 
-                progress += step;
-            }
-            //
-        }
+				int lineOffset = ThreadLineStart + thread.Line;
+				foreach (var markerSpan in thread.MarkerSpan)
+				{
+					++lineOffset;
+					foreach (var span in markerSpan)
+					{
+						DrawSpan(drawingContext, Brushes.Azure, lineOffset, snapshot.startTime, span.enter.Timestamp, span.leave.Timestamp, span.enter.Name);
+					}
+				}
+			}
+		}
 
-        private void DrawProcessorUsage(DrawingContext drawingContext, Brush brush)
-        {
-            foreach (var processor in snapshot.processors)
-            {
-                foreach(var span in processor.Spans)
-                {
-                    DrawSpan(drawingContext, brush, ProcessorLineStart + processor.Index, snapshot.startTime, span.enter.Timestamp, span.leave.Timestamp);
-                }
-            }
-        }
+		private void DrawSpan(DrawingContext drawingContext, Brush brush, int line, DateTime startTime, DateTime usingTime0, DateTime usingTime1, string text = null)
+		{
+			var w = TickToPixel(Math.Max((usingTime1 - usingTime0).Ticks, 1));
+			var x = TickToPixel((usingTime0 - startTime).Ticks);
+			var y = line * RowHeight;
+			var h = RowHeight - 2;
 
-        private void DrawThreadUsage(DrawingContext drawingContext, Brush brush)
-        {
-            foreach (var thread in snapshot.threads)
-            {
-                foreach (var span in thread.ThreadSpan)
-                {
-                    DrawSpan(drawingContext, brush, ThreadLineStart + thread.Line, snapshot.startTime, span.enter.Timestamp, span.leave.Timestamp);
-                }
+			var pen = w > 16 ? spanFramePen : null;
+			drawingContext.DrawRectangle(brush, pen, new Rect(x, y, w, h));
+			if (!string.IsNullOrEmpty(text) && w > 16)
+			{
+				var format = new FormattedText(
+					text, System.Globalization.CultureInfo.CurrentCulture, FlowDirection.LeftToRight, defaultTypeface, 12, Brushes.Black);
+				format.MaxTextWidth = w;
+				drawingContext.DrawText(format, new Point(x + 2, y));
+			}
+		}
 
-                int lineOffset = ThreadLineStart + thread.Line;
-                foreach (var markerSpan in thread.MarkerSpan)
-                {
-                    ++lineOffset;
-                    foreach (var span in markerSpan)
-                    {
-                        DrawSpan(drawingContext, Brushes.Azure, lineOffset, snapshot.startTime, span.enter.Timestamp, span.leave.Timestamp, span.enter.Name);
-                    }
-                }
-            }
-        }
+		private void ViewScroll_ValueChanged(object sender, RoutedPropertyChangedEventArgs<double> e)
+		{
+			((TranslateTransform)Index.RenderTransform).Y = -ViewScroll.Value;
 
-        private void DrawSpan(DrawingContext drawingContext, Brush brush, int line, DateTime startTime, DateTime usingTime0, DateTime usingTime1, string text = null)
-        {
-            var w = TickToPixel(Math.Max((usingTime1 - usingTime0).Ticks, 1));
-            var x = TickToPixel((usingTime0 - startTime).Ticks);
-            var y = line * RowHeight;
-            var h = RowHeight - 2;
+			var group = (TransformGroup)Graph.RenderTransform;
+			((TranslateTransform)group.Children[0]).Y = -ViewScroll.Value;
+		}
 
-            var pen = w > 16 ? spanFramePen : null;
-            drawingContext.DrawRectangle(brush, pen, new Rect(x, y, w, h));
-            if (!string.IsNullOrEmpty(text) && w > 16)
-            {
-                var format = new FormattedText(
-                    text, System.Globalization.CultureInfo.CurrentCulture, FlowDirection.LeftToRight, defaultTypeface, 12, Brushes.Black);
-                format.MaxTextWidth = w;
-                drawingContext.DrawText(format, new Point(x + 2, y));
-            }
-        }
+		private void GraphContainer_SizeChanged(object sender, SizeChangedEventArgs e)
+		{
+			UpdateGraphScrollParam();
+		}
 
-        private void ViewScroll_ValueChanged(object sender, RoutedPropertyChangedEventArgs<double> e)
-        {
-            ((TranslateTransform)Index.RenderTransform).Y = -ViewScroll.Value;
+		private void GraphScroll_ValueChanged(object sender, RoutedPropertyChangedEventArgs<double> e)
+		{
+			var group = (TransformGroup)Graph.RenderTransform;
+			((TranslateTransform)group.Children[0]).X = -e.NewValue;
 
-            var group = (TransformGroup)Graph.RenderTransform;
-            ((TranslateTransform)group.Children[0]).Y = -ViewScroll.Value;
-        }
+			((TranslateTransform)TimeMeasure.RenderTransform).X = -e.NewValue;
+		}
 
-        private void GraphContainer_SizeChanged(object sender, SizeChangedEventArgs e)
-        {
-            UpdateGraphScrollParam();
-        }
+		private void Graph_MouseEnter(object sender, MouseEventArgs e)
+		{
 
-        private void GraphScroll_ValueChanged(object sender, RoutedPropertyChangedEventArgs<double> e)
-        {
-            var group = (TransformGroup)Graph.RenderTransform;
-            ((TranslateTransform)group.Children[0]).X = -e.NewValue;
+		}
 
-            ((TranslateTransform)TimeMeasure.RenderTransform).X = -e.NewValue;
-        }
+		private void Graph_MouseLeave(object sender, MouseEventArgs e)
+		{
+			Description.Visibility = Visibility.Hidden;
+		}
 
-        private void Graph_MouseEnter(object sender, MouseEventArgs e)
-        {
-            
-        }
+		private void Graph_MouseMove(object sender, MouseEventArgs e)
+		{
+			var position = e.GetPosition(Graph);
 
-        private void Graph_MouseLeave(object sender, MouseEventArgs e)
-        {
-            Description.Visibility = Visibility.Hidden;
-        }
+			var line = (int)Math.Floor((position.Y - ThreadLineStart * RowHeight) / RowHeight);
+			if (line < 0)
+			{
+				return;
+			}
 
-        private void Graph_MouseMove(object sender, MouseEventArgs e)
-        {
-            var position = e.GetPosition(Graph);
+			var startTime = snapshot.startTime + TimeSpan.FromTicks(PixelToTick(position.X));
+			var lastTime = startTime + TimeSpan.FromTicks(1);
 
-            var line = (int)Math.Floor((position.Y - ThreadLineStart * RowHeight) / RowHeight);
-            if (line < 0)
-            {
-                return;
-            }
+			var gather = SpanGather.Gather(snapshot, line, startTime, lastTime);
+			if (gather != null)
+			{
+				string content = "";
+				content += "ID: " + gather.Thread.ProcessThread.Id + "\n";
+				if (gather.Name != null) content += "Name: " + gather.Name + "\n";
+				content += "Duration: " + gather.Duration.TotalMilliseconds + "ms\n";
+				content += "Start Time: " + gather.StartTime + "\n";
+				content += "Last Time: " + gather.LastTime + "\n";
 
-            var startTime = snapshot.startTime + TimeSpan.FromTicks(PixelToTick(position.X));
-            var lastTime = startTime + TimeSpan.FromTicks(1);
+				Description.Content = content;
+			}
 
-            var gather = SpanGather.Gather(snapshot, line, startTime, lastTime);
-            if (gather != null)
-            {
-                string content = "";
-                content += "ID: " + gather.Thread.ProcessThread.Id + "\n";
-                if(gather.Name != null) content += "Name: " + gather.Name + "\n";
-                content += "Duration: " + gather.Duration.TotalMilliseconds + "ms\n";
-                content += "Start Time: " + gather.StartTime + "\n";
-                content += "Last Time: " + gather.LastTime + "\n";
+			Description.Visibility = Visibility.Visible;
+			Description.Margin = new Thickness(position.X - GraphScroll.Value, position.Y - ViewScroll.Value, 0, 0);
+		}
 
-                Description.Content = content;
-            }
+		private double TickToPixel(long ticks)
+		{
+			return ticks / timeScale;
+		}
 
-            Description.Visibility = Visibility.Visible;
-            Description.Margin = new Thickness(position.X - GraphScroll.Value, position.Y - ViewScroll.Value, 0, 0);
-        }
+		private long PixelToTick(double pixels)
+		{
+			return (long)(pixels * timeScale);
+		}
 
-        private double TickToPixel(long ticks)
-        {
-            return ticks / timeScale;
-        }
+		private void TimeMeasure_MouseDown(object sender, MouseButtonEventArgs e)
+		{
+			if (measureDragging) return;
 
-        private long PixelToTick(double pixels)
-        {
-            return (long)(pixels * timeScale);
-        }
+			var position = e.GetPosition(TimeMeasure);
+			Canvas.SetLeft(TimeMeasureSelect, position.X);
+			TimeMeasureSelect.Width = 0;
 
-        private void TimeMeasure_MouseDown(object sender, MouseButtonEventArgs e)
-        {
-            var position = e.GetPosition(TimeMeasure);
-            Canvas.SetLeft(TimeMeasureSelect, position.X);
-            TimeMeasureSelect.Width = 0;
-        }
+			measureDragging = true;
+		}
 
-        private void TimeMeasure_MouseUp(object sender, MouseButtonEventArgs e)
-        {
-            var left = Canvas.GetLeft(TimeMeasureSelect);
-            var startTime = snapshot.startTime + TimeSpan.FromTicks(PixelToTick(left));
-            var lastTime = startTime + TimeSpan.FromTicks(PixelToTick(TimeMeasureSelect.Width));
+		private void TimeMeasure_MouseUp(object sender, MouseButtonEventArgs e)
+		{
+			if (!measureDragging) return;
 
-            var duration = lastTime - startTime;
+			var left = Canvas.GetLeft(TimeMeasureSelect);
+			var startTick = PixelToTick(left);
+			var startTime = snapshot.startTime + TimeSpan.FromTicks(startTick);
+			var lastTime = startTime + TimeSpan.FromTicks(PixelToTick(TimeMeasureSelect.Width));
 
-            //TimeScale = duration.Ticks/Graph.ActualWidth;
+			var duration = lastTime - startTime;
 
-            TimeMeasureSelect.Width = 0;
-        }
+			ChangedTimeScale?.Invoke(this, duration.Ticks / Graph.ActualWidth);
+			GraphScroll.Value = TickToPixel(startTick);			
 
-        private void TimeMeasure_MouseMove(object sender, MouseEventArgs e)
-        {
-            var position = e.GetPosition(TimeMeasure);
+			TimeMeasureSelect.Width = 0;
+			measureDragging = false;
+		}
 
-            var left = Canvas.GetLeft(TimeMeasureSelect);
-            TimeMeasureSelect.Width = Math.Max(position.X - left, 0);
-        }
-    }
+		private void TimeMeasure_MouseMove(object sender, MouseEventArgs e)
+		{
+			if (!measureDragging) return;
+
+			var position = e.GetPosition(TimeMeasure);
+
+			var left = Canvas.GetLeft(TimeMeasureSelect);
+			TimeMeasureSelect.Width = Math.Max(position.X - left, 0);
+		}
+	}
 }

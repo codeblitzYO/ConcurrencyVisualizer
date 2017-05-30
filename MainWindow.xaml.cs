@@ -33,13 +33,20 @@ namespace ETW
         {
             InitializeComponent();
 
+			Graph.ChangedTimeScale += Graph_ChangedTimeScale;
+
             sampler = new Sampler();
             sampler.Start("CV");
 
             Graph.DataSource = sampler;
         }
 
-        private void Window_Closing(object sender, System.ComponentModel.CancelEventArgs e)
+		private void Graph_ChangedTimeScale(object sender, double e)
+		{
+			Scale.Value = e;
+		}
+
+		private void Window_Closing(object sender, System.ComponentModel.CancelEventArgs e)
         {
             if (sampler != null)
             {
