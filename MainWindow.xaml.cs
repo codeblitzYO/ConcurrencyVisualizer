@@ -39,7 +39,9 @@ namespace ETW
             sampler.Start("CV");
 
             Graph.DataSource = sampler;
-        }
+			Scale.AddHandler(MouseLeftButtonDownEvent, new MouseButtonEventHandler(Scale_MouseDown), true);
+			Scale.AddHandler(MouseLeftButtonUpEvent, new MouseButtonEventHandler(Scale_MouseUp), true);
+		}
 
 		private void Graph_ChangedTimeScale(object sender, double e)
 		{
@@ -74,5 +76,16 @@ namespace ETW
         {
             Graph.TimeScale = ((float)e.NewValue);
         }
-    }
+
+		private void Scale_MouseDown(object sender, MouseButtonEventArgs e)
+		{
+			Graph.SimpleRendering = true;
+		}
+
+		private void Scale_MouseUp(object sender, MouseButtonEventArgs e)
+		{
+			Graph.SimpleRendering = false;
+			Graph.TimeScale = Graph.TimeScale;
+		}
+	}
 }

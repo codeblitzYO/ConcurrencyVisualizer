@@ -57,6 +57,11 @@ namespace ETW
 			}
 		}
 
+		public bool SimpleRendering
+		{
+			get; set;
+		}
+
 		public GraphView()
 		{
 			InitializeComponent();
@@ -219,14 +224,24 @@ namespace ETW
 			var y = line * RowHeight;
 			var h = RowHeight - 2;
 
-			var pen = w > 16 ? spanFramePen : null;
-			drawingContext.DrawRectangle(brush, pen, new Rect(x, y, w, h));
-			if (!string.IsNullOrEmpty(text) && w > 16)
+			if (SimpleRendering)
 			{
-				var format = new FormattedText(
-					text, System.Globalization.CultureInfo.CurrentCulture, FlowDirection.LeftToRight, defaultTypeface, 12, Brushes.Black);
-				format.MaxTextWidth = w;
-				drawingContext.DrawText(format, new Point(x + 2, y));
+				if (w > 8)
+				{
+					drawingContext.DrawRectangle(brush, null, new Rect(x, y, w, h));
+				}
+			}
+			else
+			{
+				var pen = w > 16 ? spanFramePen : null;
+				drawingContext.DrawRectangle(brush, pen, new Rect(x, y, w, h));
+				if (!string.IsNullOrEmpty(text) && w > 16)
+				{
+					var format = new FormattedText(
+						text, System.Globalization.CultureInfo.CurrentCulture, FlowDirection.LeftToRight, defaultTypeface, 12, Brushes.Black);
+					format.MaxTextWidth = w;
+					drawingContext.DrawText(format, new Point(x + 2, y));
+				}
 			}
 		}
 
